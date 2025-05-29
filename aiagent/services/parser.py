@@ -757,20 +757,20 @@ class Parser:
         except Exception as e:
             raise ParserError(f"TYPE XML 구조 검증 실패: {str(e)}")
 
-    def merge_rule(self, current_xml: str, current_version: str, receipt_data: Dict[str, Any]) -> Dict[str, Any]:
+    def merge_rule(self, current_xml: str, current_version: str, receipt_raw_data: Dict[str, Any]) -> Dict[str, Any]:
         """기존 XML과 새로운 데이터 병합 - GPT를 통해 적절한 순서로 TYPE 배치"""
         try:
             logger.debug("[Merge Rule] XML 병합 시작")
             logger.debug(f"[Merge Rule] 현재 XML:\n{current_xml}")
             logger.debug(f"[Merge Rule] 현재 버전: {current_version}")
             
-            # receipt_data에서 raw_data(hex) 추출
-            if "raw_data" not in receipt_data.get("receipt_data", {}):
+            # receipt_raw_data에서 raw_data(hex) 추출
+            if "raw_data" not in receipt_raw_data.get("receipt_data", {}):
                 logger.error("[Merge Rule] raw_data를 찾을 수 없음")
                 raise ParserError("raw_data(hex)가 누락되었습니다")
                 
             # hex 데이터를 텍스트로 변환
-            raw_data = receipt_data["receipt_data"]["raw_data"]
+            raw_data = receipt_raw_data["receipt_data"]["raw_data"]
             receipt_text = self._decode_raw_data(raw_data)
             logger.debug(f"[Merge Rule] 변환된 영수증 텍스트:\n{receipt_text}")
             

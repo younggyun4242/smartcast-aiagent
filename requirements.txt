@@ -5,6 +5,7 @@ python-dotenv
 pyzmq
 sqlalchemy
 psycopg2-binary
+alembic
 langchain
 langchain-community
 openai
