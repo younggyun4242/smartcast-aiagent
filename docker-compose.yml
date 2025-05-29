@@ -14,10 +14,16 @@ services:
       - BROKER_HOST=broker  # localhost에서 broker 서비스 이름으로 변경
       - BROKER_PORT=5555
       - CLIENT_ID=AIAGNT  # AI 에이전트용 고유 ID (6자리 영문 대문자)
+      
+      # 한국 시간대 설정
+      - TZ=Asia/Seoul
     env_file:
       - .env
     volumes:
       - .:/aiagent
+      # 시스템 시간대 파일 마운트 (추가 안정성)
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     restart: always
     depends_on:  # broker 서비스가 시작된 후에 시작하도록 설정
       - broker
@@ -35,7 +41,12 @@ services:
       - ./brokerserver.py:/app/brokerserver.py
       - ./start-broker.sh:/app/start-broker.sh
       - ./requirements.txt:/app/requirements.txt
+      # 시스템 시간대 파일 마운트 (추가 안정성)
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     working_dir: /app
     environment:
       - PYTHONUNBUFFERED=1
+      # 한국 시간대 설정
+      - TZ=Asia/Seoul
     restart: always

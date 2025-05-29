@@ -1,5 +1,11 @@
 FROM python:3.9-slim
 
+# 시간대 패키지 설치 및 한국 시간대 설정
+RUN apt-get update && apt-get install -y tzdata && \
+    ln -sf /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
+    echo "Asia/Seoul" > /etc/timezone && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # 필요한 패키지 설치
@@ -7,6 +13,9 @@ RUN pip install pyzmq python-systemd
 
 # 브로커 서버 파일 복사
 COPY brokerserver.py .
+
+# 환경 변수
+ENV TZ=Asia/Seoul
 
 # 포트 노출
 EXPOSE 5555

@@ -1,5 +1,11 @@
 FROM python:3.11-slim
 
+# 시간대 패키지 설치 및 한국 시간대 설정
+RUN apt-get update && apt-get install -y tzdata && \
+    ln -sf /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
+    echo "Asia/Seoul" > /etc/timezone && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # 작업 디렉토리 지정
 WORKDIR /aiagent
 
@@ -13,6 +19,7 @@ COPY . .
 # 환경 변수
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/aiagent/aiagent
+ENV TZ=Asia/Seoul
 
 # FastAPI 실행 (모니터링용)
 CMD ["uvicorn", "aiagent.main:app", "--host", "0.0.0.0", "--port", "8000"]

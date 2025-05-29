@@ -10,4 +10,5 @@ langchain-community
 openai
 psutil
 backoff
+pytz
 

@@ -1,10 +1,28 @@
 import logging
 import sys
 import threading
+import os
+from datetime import datetime
+import pytz
 
 # 로거 설정 완료 여부를 추적하는 플래그
 _logger_configured = False
 _lock = threading.Lock()
+
+# 한국 시간대 설정
+KST = pytz.timezone('Asia/Seoul')
+
+class KSTFormatter(logging.Formatter):
+    """한국 시간대를 사용하는 로그 포맷터"""
+    
+    def formatTime(self, record, datefmt=None):
+        """로그 레코드의 시간을 한국 시간대로 변환"""
+        # UTC 시간을 한국 시간으로 변환
+        dt = datetime.fromtimestamp(record.created, tz=KST)
+        if datefmt:
+            return dt.strftime(datefmt)
+        else:
+            return dt.strftime('%Y-%m-%d %H:%M:%S')
 
 def setup_logger():
     """
@@ -18,6 +36,10 @@ def setup_logger():
         if _logger_configured:
             return logging.getLogger()
         
+        # 시스템 시간대를 한국으로 설정 (환경 변수 기반)
+        if 'TZ' not in os.environ:
+            os.environ['TZ'] = 'Asia/Seoul'
+        
         # 루트 로거 설정
         root_logger = logging.getLogger()
         root_logger.setLevel(logging.DEBUG)
@@ -30,8 +52,8 @@ def setup_logger():
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(logging.DEBUG)
         
-        # 포맷터 설정
-        formatter = logging.Formatter(
+        # 한국 시간대를 사용하는 포맷터 설정
+        formatter = KSTFormatter(
             '%(asctime)s [%(levelname)s] [%(name)s:%(lineno)d] %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
