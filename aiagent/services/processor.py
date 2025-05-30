@@ -8,7 +8,6 @@ from .parser import parser, ParserError
 from ..api.admin import update_metrics
 from ..db.core import SessionLocal
 from ..db.models import ReceiptRecord
-from ..utils.email_sender import email_sender
 from ..core.protocol import MessageFormat
 from ..utils.logger import get_logger
 
@@ -92,15 +91,6 @@ class BillProcessor:
                 processing_time=processing_time
             )
             
-            # 이메일 발송
-            logger.debug("[Error Handler] 오류 알림 이메일 발송 시도")
-            error_data = {
-                "client_id": client_id,
-                "transaction_id": transaction_id,
-                "error_message": error_message,
-                "raw_data": raw_data
-            }
-            email_sender.send_error_notification(error_data)
             
         except Exception as e:
             logger.error(f"[Error Handler] 오류 처리 중 추가 오류 발생: {str(e)}")

@@ -144,20 +144,24 @@ class MessageFormat:
         return [b'', b"AI_ERROR", client_id.encode(), json.dumps(error_data).encode()]
 
     @staticmethod
-    def validate_receipt_data(receipt_data: Dict[str, Any]) -> bool:
-        """영수증 데이터 검증
+    def validate_receipt_data(receipt_data: Any) -> bool:
+        """영수증 데이터 검증 - 문자열 또는 객체 형태 모두 허용
         
         Args:
-            receipt_data: 영수증 데이터 딕셔너리
+            receipt_data: 영수증 데이터 (문자열 또는 딕셔너리)
             
         Returns:
             bool: 검증 결과
             
         검증 항목:
-        - receipt_data가 딕셔너리인지
-        - raw_data 필드가 존재하는지
-        - raw_data가 문자열인지
+        - receipt_data가 문자열인지 (직접 hex 데이터)
+        - 또는 receipt_data가 딕셔너리이고 raw_data 필드가 존재하는지
         """
+        # 방법 1: 직접 문자열로 받는 경우 (ARBKYD 방식)
+        if isinstance(receipt_data, str):
+            return len(receipt_data.strip()) > 0
+        
+        # 방법 2: 객체 형태로 받는 경우 (기존 방식)
         return (isinstance(receipt_data, dict) 
                 and "raw_data" in receipt_data 
                 and isinstance(receipt_data["raw_data"], str))
@@ -181,7 +185,7 @@ class MessageFormat:
 
     @staticmethod
     def extract_receipt_raw_data(data: Dict[str, Any]) -> str:
-        """영수증 raw_data 추출
+        """영수증 raw_data 추출 - 문자열 또는 객체 형태 모두 지원
         
         Args:
             data: 전체 요청 데이터
@@ -190,17 +194,25 @@ class MessageFormat:
             str: 영수증 raw_data
             
         Raises:
-            KeyError: receipt_data나 raw_data가 없는 경우
             ValueError: receipt_data가 올바른 형식이 아닌 경우
         """
-        if not isinstance(data.get("receipt_data"), dict):
-            raise ValueError("receipt_data must be a dictionary")
+        receipt_data = data.get("receipt_data")
         
-        raw_data = data["receipt_data"].get("raw_data")
-        if not isinstance(raw_data, str):
-            raise ValueError("raw_data must be a string")
-            
-        return raw_data
+        # 방법 1: 직접 문자열로 받는 경우 (ARBKYD 방식)
+        if isinstance(receipt_data, str):
+            if not receipt_data.strip():
+                raise ValueError("receipt_data cannot be empty")
+            return receipt_data
+        
+        # 방법 2: 객체 형태로 받는 경우 (기존 방식)
+        if isinstance(receipt_data, dict):
+            raw_data = receipt_data.get("raw_data")
+            if not isinstance(raw_data, str):
+                raise ValueError("raw_data must be a string")
+            return raw_data
+        
+        # 둘 다 아닌 경우
+        raise ValueError("receipt_data must be a string or dictionary with raw_data field")
 
 # 메시지 타입 상수
 class MessageType:

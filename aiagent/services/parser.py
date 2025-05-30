@@ -14,6 +14,7 @@ import time
 import traceback
 from binascii import unhexlify
 from ..utils.logger import get_logger
+from ..core.protocol import MessageFormat
 
 # 로깅 설정
 logger = get_logger('aiagent.services.parser')
@@ -577,15 +578,14 @@ class Parser:
             logger.debug("[Generate Rule] 새로운 파싱 규칙 생성 시작")
             logger.debug(f"[Generate Rule] 입력 데이터:\n{json.dumps(receipt_data, ensure_ascii=False, indent=2)}")
             
-            # receipt_data에서 raw_data(hex) 추출
-            if "raw_data" not in receipt_data.get("receipt_data", {}):
-                logger.error("[Generate Rule] raw_data를 찾을 수 없음")
+            # protocol.py의 extract_receipt_raw_data 함수 사용 (문자열/객체 형태 모두 지원)
+            try:
+                raw_data = MessageFormat.extract_receipt_raw_data(receipt_data)
+                logger.debug(f"[Generate Rule] 추출된 raw_data(hex):\n{raw_data}")
+            except ValueError as e:
+                logger.error(f"[Generate Rule] raw_data 추출 실패: {str(e)}")
                 logger.error(f"[Generate Rule] receipt_data 내용: {receipt_data.get('receipt_data', {})}")
-                raise ParserError("raw_data(hex)가 누락되었습니다")
-                
-            # hex 데이터를 텍스트로 변환
-            raw_data = receipt_data["receipt_data"]["raw_data"]
-            logger.debug(f"[Generate Rule] 입력된 raw_data(hex):\n{raw_data}")
+                raise ParserError(f"raw_data 추출 실패: {str(e)}")
             
             receipt_text = self._decode_raw_data(raw_data)
             logger.debug(f"[Generate Rule] 변환된 영수증 텍스트:\n{receipt_text}")
@@ -764,13 +764,14 @@ class Parser:
             logger.debug(f"[Merge Rule] 현재 XML:\n{current_xml}")
             logger.debug(f"[Merge Rule] 현재 버전: {current_version}")
             
-            # receipt_data에서 raw_data(hex) 추출
-            if "raw_data" not in receipt_data.get("receipt_data", {}):
-                logger.error("[Merge Rule] raw_data를 찾을 수 없음")
-                raise ParserError("raw_data(hex)가 누락되었습니다")
-                
-            # hex 데이터를 텍스트로 변환
-            raw_data = receipt_data["receipt_data"]["raw_data"]
+            # protocol.py의 extract_receipt_raw_data 함수 사용 (문자열/객체 형태 모두 지원)
+            try:
+                raw_data = MessageFormat.extract_receipt_raw_data(receipt_data)
+                logger.debug(f"[Merge Rule] 추출된 raw_data(hex):\n{raw_data}")
+            except ValueError as e:
+                logger.error(f"[Merge Rule] raw_data 추출 실패: {str(e)}")
+                raise ParserError(f"raw_data 추출 실패: {str(e)}")
+            
             receipt_text = self._decode_raw_data(raw_data)
             logger.debug(f"[Merge Rule] 변환된 영수증 텍스트:\n{receipt_text}")
             
