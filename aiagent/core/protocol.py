@@ -33,8 +33,8 @@ ZeroMQ 메시지 프로토콜 정의 v1.0
          "mode": "GENERATE",
          "client_id": "클라이언트 ID",
          "transaction_id": "고유 거래 ID",
-         "receipt_data": {
-             "raw_data": "영수증 raw 데이터 (필수)"
+         "receipt_data": "영수증 raw 데이터 (문자열)" 또는 {
+             "raw_data": "영수증 raw 데이터"
          },
          "version": "1.0"
      }
@@ -43,7 +43,7 @@ ZeroMQ 메시지 프로토콜 정의 v1.0
          "status": "success",
          "data": {
              "xml_rule": "생성된 XML 규칙",
-             "confidence_score": "신뢰도 점수"
+             "version": "생성된 XML 버전"
          },
          "version": "1.0"
      }
@@ -58,7 +58,7 @@ ZeroMQ 메시지 프로토콜 정의 v1.0
          "mode": "MERGE",
          "client_id": "클라이언트 ID",
          "transaction_id": "고유 거래 ID",
-         "receipt_data": {
+         "receipt_data": "영수증 raw 데이터 (문자열)" 또는 {
              "raw_data": "영수증 raw 데이터"
          },
          "current_xml": "현재 XML",
@@ -71,7 +71,7 @@ ZeroMQ 메시지 프로토콜 정의 v1.0
          "data": {
              "merged_xml": "병합된 XML",
              "changes": "변경사항 목록",
-             "confidence_score": "신뢰도 점수"
+             "new_version": "업데이트된 XML 버전"
          },
          "version": "1.0"
      }

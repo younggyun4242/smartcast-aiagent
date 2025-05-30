@@ -115,7 +115,16 @@ def handle_ai_generate(sock, parts):
             
             # 검증이 성공한 경우에만 AI_OK 응답 전송
             if result.get("status") == "ok":
-                sock.send_multipart([b'', MessageType.AI_OK, client_id.encode(), json.dumps(result).encode()])
+                # protocol.py 문서에 맞는 응답 형식으로 변환
+                response_data = {
+                    "status": "success",
+                    "data": {
+                        "xml_rule": result["rule_xml"],
+                        "version": result["version"]
+                    },
+                    "version": "1.0"
+                }
+                sock.send_multipart([b'', MessageType.AI_OK, client_id.encode(), json.dumps(response_data).encode()])
                 logger.info(f"AI_GENERATE 응답 전송 완료: {client_id}")
             else:
                 # 검증 실패 시 에러 응답 전송
@@ -160,14 +169,33 @@ def handle_ai_merge(sock, parts):
             
         try:
             result = bill_processor.process_ai_merge(client_id=client_id, raw_data=parts[2])
+            
+            if result.get("status") == "ok":
+                # protocol.py 문서에 맞는 응답 형식으로 변환
+                response_data = {
+                    "status": "success",
+                    "data": {
+                        "merged_xml": result["merged_rule_xml"],
+                        "changes": result["changes"],
+                        "new_version": result["version"]
+                    },
+                    "version": "1.0"
+                }
+                sock.send_multipart([b'', MessageType.AI_OK, client_id.encode(), json.dumps(response_data).encode()])
+                logger.info(f"AI_MERGE 응답 전송 완료: {client_id}")
+            else:
+                error_result = {
+                    "status": "error",
+                    "error": result.get("error", "알 수 없는 오류가 발생했습니다")
+                }
+                sock.send_multipart([b'', MessageType.AI_ERROR, client_id.encode(), json.dumps(error_result).encode()])
+                logger.error(f"AI_MERGE 검증 실패: {client_id}")
         except ProcessingError as e:
             result = {
                 "status": "error",
                 "error": str(e)
             }
-            
-        sock.send_multipart([b'', MessageType.AI_OK, client_id.encode(), json.dumps(result).encode()])
-        logger.info(f"AI_MERGE 응답 전송 완료: {client_id}")
+            sock.send_multipart([b'', MessageType.AI_ERROR, client_id.encode(), json.dumps(result).encode()])
             
     except Exception as e:
         logger.error(f"AI_MERGE 처리 중 예외 발생: {e}")
