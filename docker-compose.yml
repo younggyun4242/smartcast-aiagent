@@ -7,12 +7,12 @@ services:
       - "8000:8000"  # FastAPI 모니터링 포트
     environment:
       # 실서버 설정
-      - BROKER_HOST=bell.softcloud.co.kr
-      - BROKER_PORT=25555
+      # - BROKER_HOST=bell.softcloud.co.kr
+      # - BROKER_PORT=25555
       
       # 로컬 테스트 설정
-      # - BROKER_HOST=broker  # localhost에서 broker 서비스 이름으로 변경
-      # - BROKER_PORT=5555
+      - BROKER_HOST=broker  # localhost에서 broker 서비스 이름으로 변경
+      - BROKER_PORT=5555
 
       - CLIENT_ID=AIAGNT  # AI 에이전트용 고유 ID (6자리 영문 대문자)
 
@@ -31,14 +31,14 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '30.0'      # 32코어 중 30코어 사용
-          memory: 56G       # 62GB 중 56GB 사용
-        reservations:
-          cpus: '8.0'       # 최소 8코어 보장
-          memory: 8G        # 최소 8GB 보장
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '30.0'      # 32코어 중 30코어 사용
+    #       memory: 56G       # 62GB 중 56GB 사용
+    #     reservations:
+    #       cpus: '8.0'       # 최소 8코어 보장
+    #       memory: 8G        # 최소 8GB 보장
     # 컨테이너 헬스체크
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
@@ -46,28 +46,28 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s    
-    # depends_on:  # broker 서비스가 시작된 후에 시작하도록 설정
-    #   - broker
+    depends_on:  # broker 서비스가 시작된 후에 시작하도록 설정
+      - broker
 
   # 로컬 테스트용 브로커 서버
-  # broker:
-  #   platform: linux/amd64
-  #   image: python:3.9-slim
-  #   command: >
-  #     sh -c "pip install -r /app/requirements.txt &&
-  #            sh /app/start-broker.sh"
-  #   ports:
-  #     - "5555:5555"  # ZMQ 브로커 포트
-  #   volumes:
-  #     - ./brokerserver.py:/app/brokerserver.py
-  #     - ./start-broker.sh:/app/start-broker.sh
-  #     - ./requirements.txt:/app/requirements.txt
-  #     # 시스템 시간대 파일 마운트 (추가 안정성)
-  #     - /etc/localtime:/etc/localtime:ro
-  #     - /etc/timezone:/etc/timezone:ro
-  #   working_dir: /app
-  #   environment:
-  #     - PYTHONUNBUFFERED=1
-  #     # 한국 시간대 설정
-  #     - TZ=Asia/Seoul
-  #   restart: always
+  broker:
+    platform: linux/amd64
+    image: python:3.9-slim
+    command: >
+      sh -c "pip install -r /app/requirements.txt &&
+             sh /app/start-broker.sh"
+    ports:
+      - "5555:5555"  # ZMQ 브로커 포트
+    volumes:
+      - ./brokerserver.py:/app/brokerserver.py
+      - ./start-broker.sh:/app/start-broker.sh
+      - ./requirements.txt:/app/requirements.txt
+      # 시스템 시간대 파일 마운트 (추가 안정성)
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    working_dir: /app
+    environment:
+      - PYTHONUNBUFFERED=1
+      # 한국 시간대 설정
+      - TZ=Asia/Seoul
+    restart: always

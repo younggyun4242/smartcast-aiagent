@@ -119,10 +119,11 @@ try:
                 response = socket.recv_multipart()
                 logger.info(f"📥 응답 수신: {len(response)} 프레임")
 
-                if len(response) >= 4:
+                if len(response) >= 5:  # transaction_id 추가로 5개 프레임
                     if response[1] == b"AI_OK":
-                        generate_result = json.loads(response[3].decode(errors='ignore'))
+                        generate_result = json.loads(response[4].decode(errors='ignore'))  # response[4]로 변경
                         logger.info("✅ AI_GENERATE 성공")
+                        logger.info(f"📋 Transaction ID: {response[3].decode()}")  # transaction_id 로깅 추가
                         logger.info("=== 생성 결과 ===")
                         logger.info(json.dumps(generate_result, indent=2, ensure_ascii=False))
 
@@ -151,9 +152,10 @@ try:
                             merge_response = socket.recv_multipart()
                             logger.info(f"📥 응답 수신: {len(merge_response)} 프레임")
 
-                            if len(merge_response) >= 4 and merge_response[1] == b"AI_OK":
-                                merge_result = json.loads(merge_response[3].decode(errors='ignore'))
+                            if len(merge_response) >= 5 and merge_response[1] == b"AI_OK":  # 5로 변경
+                                merge_result = json.loads(merge_response[4].decode(errors='ignore'))  # response[4]로 변경
                                 logger.info("✅ AI_MERGE 성공")
+                                logger.info(f"📋 Transaction ID: {merge_response[3].decode()}")  # transaction_id 로깅 추가
                                 logger.info("=== 병합 결과 ===")
                                 logger.info(json.dumps(merge_result, indent=2, ensure_ascii=False))
                             else:
@@ -162,8 +164,9 @@ try:
                         else:
                             logger.error("❗ AI_MERGE 응답 타임아웃")
                     elif response[1] == b"AI_ERROR":
-                        error_result = json.loads(response[3].decode(errors='ignore'))
+                        error_result = json.loads(response[4].decode(errors='ignore'))  # response[4]로 변경
                         logger.error("❌ AI_GENERATE 실패")
+                        logger.error(f"📋 Transaction ID: {response[3].decode()}")  # transaction_id 로깅 추가
                         logger.error("=== 오류 내용 ===")
                         logger.error(json.dumps(error_result, indent=2, ensure_ascii=False))
                 else:

@@ -88,9 +88,33 @@ class Parser:
 """
         )
 
+    def _extract_parser(self, text: str) -> str:
+        """
+        텍스트에서 PARSER 부분만 추출
+        """
+        try:
+            logger.debug(f"[Extract PARSER] 입력된 텍스트:\n{text}")
+            
+            # PARSER 태그 시작과 끝 찾기 (공백과 줄바꿈 포함)
+            parser_pattern = r"\s*<PARSER[^>]*>[\s\S]*?</PARSER>\s*"
+            match = re.search(parser_pattern, text, re.DOTALL)
+            
+            if not match:
+                logger.error("[Extract PARSER] PARSER 태그를 찾을 수 없음")
+                logger.error(f"[Extract PARSER] 검색 패턴: {parser_pattern}")
+                raise ParserError("PARSER 파싱 규칙을 찾을 수 없습니다")
+                
+            parser_xml = match.group(0).strip()
+            logger.debug(f"[Extract PARSER] 추출된 PARSER:\n{parser_xml}")
+            return parser_xml
+            
+        except Exception as e:
+            logger.error(f"[Extract PARSER] PARSER 추출 실패: {str(e)}")
+            raise ParserError(f"PARSER 추출 실패: {str(e)}")
+
     def _extract_type(self, text: str) -> str:
         """
-        텍스트에서 TYPE 부분만 추출
+        텍스트에서 TYPE 부분만 추출 (호환성을 위해 유지)
         """
         try:
             logger.debug(f"[Extract TYPE] 입력된 텍스트:\n{text}")
@@ -114,18 +138,19 @@ class Parser:
 
     def wrap_generated_type(self, type_xml: str) -> str:
         """
-        생성된 TYPE XML을 고정 구조로 감싸기
+        생성된 TYPE XML을 고정 구조로 감싸기 (더 이상 사용하지 않음)
         """
+        logger.warning("[Wrap Generated Type] 이 함수는 더 이상 사용되지 않습니다. GPT가 전체 PARSER를 생성합니다.")
         return f'''<?xml version="1.0" encoding="UTF-8"?>
 <PARSER
     name="deepkds"
     id="orderParser"
     type="a"
-    cut="n"
-    remove="a!0|a1|a0|B0|E0|!F|!@|!|[CUT]|대기번호확인"
-    replace="[BIG]=[NOR]|[VER]=[NOR]|[BLD]=[NOR]|[BAR]=[NOR]영수증번호 : |[NOR]=\\n">
+    cut=""
+    remove="▶|\\x10|\\r|!"
+    replace="">
 
-  <NORMAL contain="추가-|신규-|취소-|환불-" count="1">
+  <NORMAL contain="추가-|신규-|취소-|환불-|주방주문서" count="1">
     {type_xml.strip()}
   </NORMAL>
 </PARSER>'''
@@ -222,9 +247,11 @@ class Parser:
     def _call_llm(self, prompt_text: str) -> str:
         """LLM 호출 with 재시도 로직"""
         try:
-            response = self.llm.predict(prompt_text)
-            logger.debug(f"[LLM Response] GPT 응답:\n{response}")
-            return response
+            response = self.llm.invoke(prompt_text)
+            # invoke 메서드는 AIMessage 객체를 반환하므로 content 속성에서 텍스트 추출
+            response_text = response.content if hasattr(response, 'content') else str(response)
+            logger.debug(f"[LLM Response] GPT 응답:\n{response_text}")
+            return response_text
         except RateLimitError:
             logger.warning("API 속도 제한에 걸림, 재시도 중...")
             raise
@@ -573,7 +600,7 @@ class Parser:
             return items
 
     def generate_rule(self, receipt_data: Dict[str, Any]) -> Dict[str, Any]:
-        """새로운 파싱 규칙 생성 - TYPE만 생성하고 고정 구조로 감싸기"""
+        """새로운 파싱 규칙 생성 - GPT가 전체 PARSER 블록을 생성"""
         try:
             logger.debug("[Generate Rule] 새로운 파싱 규칙 생성 시작")
             logger.debug(f"[Generate Rule] 입력 데이터:\n{json.dumps(receipt_data, ensure_ascii=False, indent=2)}")
@@ -590,25 +617,21 @@ class Parser:
             receipt_text = self._decode_raw_data(raw_data)
             logger.debug(f"[Generate Rule] 변환된 영수증 텍스트:\n{receipt_text}")
             
-            # 프롬프트 생성 및 로깅 (TYPE만 생성하도록 변경된 프롬프트 사용)
+            # 프롬프트 생성 및 로깅 (전체 PARSER 생성하도록 변경된 프롬프트 사용)
             prompt = self.prompt.format(receipt_text=receipt_text)
             logger.debug(f"[Generate Rule] GPT 프롬프트:\n{prompt}")
             
-            # TYPE 규칙 생성
+            # 전체 PARSER 규칙 생성
             llm_response = self._call_llm(prompt)
             logger.debug(f"[Generate Rule] GPT 응답 원본:\n{llm_response}")
             
-            # TYPE 추출
-            type_xml = self._extract_type(llm_response)
-            logger.debug(f"[Generate Rule] 추출된 TYPE:\n{type_xml}")
+            # PARSER 추출
+            complete_xml = self._extract_parser(llm_response)
+            logger.debug(f"[Generate Rule] 추출된 PARSER:\n{complete_xml}")
             
-            # TYPE 구조 검증
-            self._validate_type_structure(type_xml)
-            logger.debug("[Generate Rule] TYPE 구조 검증 완료")
-            
-            # TYPE을 고정 구조로 감싸기
-            complete_xml = self.wrap_generated_type(type_xml)
-            logger.debug(f"[Generate Rule] 완성된 XML 규칙:\n{complete_xml}")
+            # PARSER 구조 검증
+            self._validate_parser_structure(complete_xml)
+            logger.debug("[Generate Rule] PARSER 구조 검증 완료")
             
             # 생성된 규칙을 실제 데이터에 적용해보기 (검증)
             try:
@@ -713,49 +736,82 @@ class Parser:
             logger.error(f"[Apply Rule] 스택 트레이스:\n{traceback.format_exc()}")
             raise ParserError(f"파싱 규칙 적용 실패: {str(e)}")
 
-    def _validate_type_structure(self, type_xml: str) -> None:
+    def _validate_parser_structure(self, parser_xml: str) -> None:
         """
-        생성된 TYPE XML 구조 검증
+        생성된 PARSER XML 구조 검증
         """
         try:
-            # TYPE XML 파싱
-            type_root = ET.fromstring(type_xml)
+            # PARSER XML 파싱
+            parser_root = ET.fromstring(parser_xml)
             
             # 루트 태그 확인
-            if type_root.tag != "TYPE":
-                raise ParserError("루트 태그가 TYPE이 아닙니다")
+            if parser_root.tag != "PARSER":
+                raise ParserError("루트 태그가 PARSER이 아닙니다")
             
-            # TYPE 필수 속성 확인
-            if not type_root.get("name"):
-                raise ParserError("TYPE 태그에 name 속성이 없습니다")
-            if not type_root.get("contain"):
-                raise ParserError("TYPE 태그에 contain 속성이 없습니다")
+            # PARSER 필수 속성 확인
+            if not parser_root.get("name"):
+                raise ParserError("PARSER 태그에 name 속성이 없습니다")
+            if not parser_root.get("id"):
+                raise ParserError("PARSER 태그에 id 속성이 없습니다")
+            if not parser_root.get("type"):
+                raise ParserError("PARSER 태그에 type 속성이 없습니다")
             
-            # 필수 하위 태그 확인
-            required_child_tags = {'ORDER_ID', 'DATE', 'POS', 'MENU'}
-            found_child_tags = {child.tag for child in type_root}
-            missing_child_tags = required_child_tags - found_child_tags
-            if missing_child_tags:
-                raise ParserError(f"TYPE 내 필수 태그가 누락됨: {missing_child_tags}")
+            # NORMAL 블록 확인
+            normal_block = parser_root.find("NORMAL")
+            if normal_block is None:
+                raise ParserError("NORMAL 태그를 찾을 수 없습니다")
             
-            # MENU 태그 내부 구조 확인
-            menu = type_root.find("MENU")
-            if menu is None:
-                raise ParserError("MENU 태그를 찾을 수 없습니다")
+            # NORMAL 블록 속성 확인
+            if not normal_block.get("contain"):
+                raise ParserError("NORMAL 태그에 contain 속성이 없습니다")
             
-            # MENU 내 필수 하위 태그 확인
-            menu_child_tags = {child.tag for child in menu}
-            required_menu_tags = {'NAME', 'COUNT', 'STATUS'}
-            missing_menu_tags = required_menu_tags - menu_child_tags
-            if missing_menu_tags:
-                raise ParserError(f"MENU 내 필수 태그가 누락됨: {missing_menu_tags}")
+            # NORMAL contain 속성이 새로운 타입 체계를 포함하는지 확인
+            contain_value = normal_block.get("contain", "")
+            expected_patterns = ["신규", "변경", "취소", "주문", "접수", "수정", "추가", "환불", "삭제", "주방주문서", "영수증"]
+            if not any(pattern in contain_value for pattern in expected_patterns):
+                raise ParserError(f"NORMAL contain 속성이 예상된 패턴을 포함하지 않습니다. 현재값: {contain_value}")
+            
+            if not normal_block.get("count"):
+                raise ParserError("NORMAL 태그에 count 속성이 없습니다")
+            
+            # TYPE 태그 확인
+            type_tags = normal_block.findall("TYPE")
+            if not type_tags:
+                raise ParserError("NORMAL 블록 내에 TYPE 태그가 없습니다")
+            
+            # 각 TYPE 태그 검증
+            for type_elem in type_tags:
+                # TYPE 필수 속성 확인
+                if not type_elem.get("name"):
+                    raise ParserError("TYPE 태그에 name 속성이 없습니다")
+                if not type_elem.get("contain"):
+                    raise ParserError("TYPE 태그에 contain 속성이 없습니다")
+                
+                # TYPE 내 필수 하위 태그 확인
+                required_child_tags = {'ORDER_ID', 'TABLE_ID', 'MENU'}
+                found_child_tags = {child.tag for child in type_elem}
+                missing_child_tags = required_child_tags - found_child_tags
+                if missing_child_tags:
+                    raise ParserError(f"TYPE '{type_elem.get('name')}' 내 필수 태그가 누락됨: {missing_child_tags}")
+                
+                # MENU 태그 내부 구조 확인
+                menu = type_elem.find("MENU")
+                if menu is None:
+                    raise ParserError(f"TYPE '{type_elem.get('name')}'에서 MENU 태그를 찾을 수 없습니다")
+                
+                # MENU 내 필수 하위 태그 확인
+                menu_child_tags = {child.tag for child in menu}
+                required_menu_tags = {'NAME', 'COUNT', 'STATUS'}
+                missing_menu_tags = required_menu_tags - menu_child_tags
+                if missing_menu_tags:
+                    raise ParserError(f"TYPE '{type_elem.get('name')}'의 MENU 내 필수 태그가 누락됨: {missing_menu_tags}")
                 
         except ParseError as e:
-            raise ParserError(f"잘못된 TYPE XML 형식: {str(e)}")
+            raise ParserError(f"잘못된 PARSER XML 형식: {str(e)}")
         except ParserError:
             raise
         except Exception as e:
-            raise ParserError(f"TYPE XML 구조 검증 실패: {str(e)}")
+            raise ParserError(f"PARSER XML 구조 검증 실패: {str(e)}")
 
     def merge_rule(self, current_xml: str, current_version: str, receipt_data: Dict[str, Any]) -> Dict[str, Any]:
         """기존 XML과 새로운 데이터 병합 - GPT를 통해 적절한 순서로 TYPE 배치"""
@@ -941,7 +997,7 @@ class Parser:
     remove="a!0|a1|a0|B0|E0|!F|!@|!|[CUT]|대기번호확인"
     replace="[BIG]=[NOR]|[VER]=[NOR]|[BLD]=[NOR]|[BAR]=[NOR]영수증번호 : |[NOR]=\\n">
 
-  <NORMAL contain="추가-|신규-|취소-|환불-" count="1">
+  <NORMAL contain="추가-|신규-|취소-|환불-|주방주문서" count="1">
     {types_content}
   </NORMAL>
 </PARSER>'''
