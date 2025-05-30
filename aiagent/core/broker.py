@@ -105,6 +105,14 @@ def handle_ai_generate(sock, parts):
 
         client_id = parts[1].decode()
         
+        # transaction_id 추출을 위해 JSON 파싱
+        transaction_id = "UNKNOWN"
+        try:
+            data = json.loads(parts[2].decode('utf-8'))
+            transaction_id = data.get("transaction_id", "UNKNOWN")
+        except:
+            pass
+        
         if not bill_processor:
             logger.error("영수증 처리기가 초기화되지 않았습니다")
             return
@@ -124,24 +132,24 @@ def handle_ai_generate(sock, parts):
                     },
                     "version": "1.0"
                 }
-                sock.send_multipart([b'', MessageType.AI_OK, client_id.encode(), json.dumps(response_data).encode()])
-                logger.info(f"AI_GENERATE 응답 전송 완료: {client_id}")
+                sock.send_multipart([b'', MessageType.AI_OK, client_id.encode(), transaction_id.encode(), json.dumps(response_data).encode()])
+                logger.info(f"AI_GENERATE 응답 전송 완료: {client_id}, transaction_id: {transaction_id}")
             else:
                 # 검증 실패 시 에러 응답 전송
                 error_result = {
                     "status": "error",
                     "error": result.get("error", "알 수 없는 오류가 발생했습니다")
                 }
-                sock.send_multipart([b'', MessageType.AI_ERROR, client_id.encode(), json.dumps(error_result).encode()])
-                logger.error(f"AI_GENERATE 검증 실패: {client_id}")
+                sock.send_multipart([b'', MessageType.AI_ERROR, client_id.encode(), transaction_id.encode(), json.dumps(error_result).encode()])
+                logger.error(f"AI_GENERATE 검증 실패: {client_id}, transaction_id: {transaction_id}")
             
         except ProcessingError as e:
             error_result = {
                 "status": "error",
                 "error": str(e)
             }
-            sock.send_multipart([b'', MessageType.AI_ERROR, client_id.encode(), json.dumps(error_result).encode()])
-            logger.error(f"AI_GENERATE 처리 오류: {client_id} - {str(e)}")
+            sock.send_multipart([b'', MessageType.AI_ERROR, client_id.encode(), transaction_id.encode(), json.dumps(error_result).encode()])
+            logger.error(f"AI_GENERATE 처리 오류: {client_id}, transaction_id: {transaction_id} - {str(e)}")
             
     except Exception as e:
         logger.error(f"AI_GENERATE 처리 중 예외 발생: {e}")
@@ -150,7 +158,7 @@ def handle_ai_generate(sock, parts):
                 "status": "error",
                 "error": f"내부 서버 오류: {str(e)}"
             }
-            sock.send_multipart([b'', MessageType.AI_ERROR, client_id.encode(), json.dumps(error_result).encode()])
+            sock.send_multipart([b'', MessageType.AI_ERROR, client_id.encode(), transaction_id.encode(), json.dumps(error_result).encode()])
         except:
             logger.error("오류 응답 전송 실패")
 
@@ -162,6 +170,14 @@ def handle_ai_merge(sock, parts):
             return
 
         client_id = parts[1].decode()
+        
+        # transaction_id 추출을 위해 JSON 파싱
+        transaction_id = "UNKNOWN"
+        try:
+            data = json.loads(parts[2].decode('utf-8'))
+            transaction_id = data.get("transaction_id", "UNKNOWN")
+        except:
+            pass
         
         if not bill_processor:
             logger.error("영수증 처리기가 초기화되지 않았습니다")
@@ -181,21 +197,21 @@ def handle_ai_merge(sock, parts):
                     },
                     "version": "1.0"
                 }
-                sock.send_multipart([b'', MessageType.AI_OK, client_id.encode(), json.dumps(response_data).encode()])
-                logger.info(f"AI_MERGE 응답 전송 완료: {client_id}")
+                sock.send_multipart([b'', MessageType.AI_OK, client_id.encode(), transaction_id.encode(), json.dumps(response_data).encode()])
+                logger.info(f"AI_MERGE 응답 전송 완료: {client_id}, transaction_id: {transaction_id}")
             else:
                 error_result = {
                     "status": "error",
                     "error": result.get("error", "알 수 없는 오류가 발생했습니다")
                 }
-                sock.send_multipart([b'', MessageType.AI_ERROR, client_id.encode(), json.dumps(error_result).encode()])
-                logger.error(f"AI_MERGE 검증 실패: {client_id}")
+                sock.send_multipart([b'', MessageType.AI_ERROR, client_id.encode(), transaction_id.encode(), json.dumps(error_result).encode()])
+                logger.error(f"AI_MERGE 검증 실패: {client_id}, transaction_id: {transaction_id}")
         except ProcessingError as e:
             result = {
                 "status": "error",
                 "error": str(e)
             }
-            sock.send_multipart([b'', MessageType.AI_ERROR, client_id.encode(), json.dumps(result).encode()])
+            sock.send_multipart([b'', MessageType.AI_ERROR, client_id.encode(), transaction_id.encode(), json.dumps(result).encode()])
             
     except Exception as e:
         logger.error(f"AI_MERGE 처리 중 예외 발생: {e}")

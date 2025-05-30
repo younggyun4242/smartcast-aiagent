@@ -624,8 +624,8 @@ class Parser:
                 logger.error(f"[Generate Rule] 규칙 적용 테스트 실패: {str(e)}")
                 raise ParserError(f"생성된 파싱 규칙 검증 실패: {str(e)}")
             
-            # 버전 생성 (client_id_001.xml 형식)
-            version = f"{receipt_data['client_id']}_001.xml"
+            # 버전 생성 (숫자 형식으로 변경)
+            version = "1.0"
             
             return {
                 "status": "ok",
@@ -814,7 +814,7 @@ class Parser:
                 logger.error(f"[Merge Rule] 병합된 규칙 적용 테스트 실패: {str(e)}")
                 raise ParserError(f"병합된 파싱 규칙 검증 실패: {str(e)}")
             
-            # 새 버전 생성 (+1)
+            # 새 버전 생성 (+0.1)
             new_version = self._increment_version(current_version)
             
             return {
@@ -954,34 +954,22 @@ class Parser:
             raise ParserError(f"Multiple TYPE XML 감싸기 실패: {str(e)}")
 
     def _increment_version(self, current_version: str) -> str:
-        """버전 번호 +1"""
+        """버전 번호 +0.1 (숫자 형식)"""
         try:
-            # "PXMXBI_001.xml" 형식에서 숫자 부분 추출
-            if "_" in current_version and current_version.endswith(".xml"):
-                parts = current_version.split("_")
-                if len(parts) >= 2:
-                    client_id = parts[0]
-                    version_part = parts[1].split(".")[0]  # "001" 부분
-                    
-                    try:
-                        version_num = int(version_part)
-                        new_version = f"{client_id}_{version_num + 1:03d}.xml"
-                        logger.debug(f"[Increment Version] {current_version} → {new_version}")
-                        return new_version
-                    except ValueError:
-                        pass
+            # "1.0" 형식에서 0.1 증가
+            version_float = float(current_version)
+            new_version = round(version_float + 0.1, 1)
+            new_version_str = str(new_version)
+            logger.debug(f"[Increment Version] {current_version} → {new_version_str}")
+            return new_version_str
             
+        except ValueError:
             # 파싱 실패시 기본 처리
             logger.warning(f"[Increment Version] 버전 파싱 실패, 기본 처리: {current_version}")
-            if current_version.endswith(".xml"):
-                base = current_version[:-4]
-                return f"{base}_002.xml"
-            else:
-                return f"{current_version}_002.xml"
-                
+            return "1.1"
         except Exception as e:
-            logger.error(f"[Increment Version] 버전 증가 실패: {str(e)}")
-            return f"{current_version}_new.xml"
+            logger.error(f"[Increment Version] 예외 발생: {str(e)}")
+            return "1.1"
 
 # 싱글톤 인스턴스 생성
 try:

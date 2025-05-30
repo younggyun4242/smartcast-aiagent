@@ -38,16 +38,16 @@ ZeroMQ 메시지 프로토콜 정의 v1.0
          },
          "version": "1.0"
      }
-   - 성공 응답: [b'', b"AI_OK", client_id, json_response_data]
+   - 성공 응답: [b'', b"AI_OK", client_id, transaction_id, json_response_data]
      json_response_data = {
          "status": "success",
          "data": {
              "xml_rule": "생성된 XML 규칙",
-             "version": "생성된 XML 버전"
+             "version": "생성된 XML 버전 (숫자 형식, 예: 1.1)"
          },
          "version": "1.0"
      }
-   - 에러 응답: [b'', b"AI_ERROR", client_id, json_error_data]
+   - 에러 응답: [b'', b"AI_ERROR", client_id, transaction_id, json_error_data]
 
 4. AI_MERGE
    - 설명: 기존 XML과 새로운 데이터 병합
@@ -62,20 +62,20 @@ ZeroMQ 메시지 프로토콜 정의 v1.0
              "raw_data": "영수증 raw 데이터"
          },
          "current_xml": "현재 XML",
-         "current_version": "현재 버전",
+         "current_version": "현재 버전 (숫자 형식, 예: 1.0)",
          "version": "1.0"
      }
-   - 성공 응답: [b'', b"AI_OK", client_id, json_response_data]
+   - 성공 응답: [b'', b"AI_OK", client_id, transaction_id, json_response_data]
      json_response_data = {
          "status": "success",
          "data": {
              "merged_xml": "병합된 XML",
              "changes": "변경사항 목록",
-             "new_version": "업데이트된 XML 버전"
+             "new_version": "업데이트된 XML 버전 (숫자 형식, 예: 1.1)"
          },
          "version": "1.0"
      }
-   - 에러 응답: [b'', b"AI_ERROR", client_id, json_error_data]
+   - 에러 응답: [b'', b"AI_ERROR", client_id, transaction_id, json_error_data]
 
 공통 에러 응답 형식:
 json_error_data = {
