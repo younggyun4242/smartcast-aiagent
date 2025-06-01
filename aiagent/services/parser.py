@@ -1,17 +1,18 @@
-from langchain_community.chat_models import ChatOpenAI
+import json
+import logging
+import os
+import re
+import traceback
+import xml.etree.ElementTree as ET
+from typing import Dict, Any, Optional, Tuple
+from xml.etree.ElementTree import ParseError
+
+import backoff
 from langchain.prompts import PromptTemplate
+from langchain_community.chat_models import ChatOpenAI
 from langchain.schema import OutputParserException
 from openai import OpenAIError, APIError, RateLimitError, APIConnectionError, BadRequestError
-import os
-import logging
-from typing import Optional, Dict, Any
-import re
-import xml.etree.ElementTree as ET
-from xml.etree.ElementTree import ParseError
-import backoff
-import json
-import time
-import traceback
+
 from binascii import unhexlify
 from ..utils.logger import get_logger
 from ..core.protocol import MessageFormat
@@ -30,6 +31,7 @@ class Parser:
         if not self.api_key:
             raise ParserError("OpenAI API 키가 설정되지 않았습니다.")
         
+        # LLM 초기화
         try:
             self.llm = ChatOpenAI(
                 model_name="gpt-4o", 
@@ -42,7 +44,7 @@ class Parser:
             raise ParserError(f"LLM 초기화 실패: {str(e)}")
 
         # XML 태그 정의
-        self.required_tags = {'TYPE', 'ORDER_ID', 'DATE', 'POS', 'MENU'}
+        self.required_tags = {'TYPE', 'DATE', 'MENU'}
         self.item_tags = {'NAME', 'COUNT', 'STATUS'}
         
         # 파서용 프롬프트 템플릿
@@ -71,10 +73,10 @@ class Parser:
 기존 XML 파싱 규칙과 새로운 영수증 데이터를 분석하여 개선된 TYPE 규칙을 생성해주세요.
 
 기존 XML 규칙:
-{current_xml}
+{{current_xml}}
 
 새로운 영수증 데이터:
-{receipt_data}
+{{receipt_data}}
 
 목표:
 1. 새로운 영수증 형식을 올바르게 처리할 수 있도록 TYPE 규칙을 업데이트하세요.
@@ -111,49 +113,6 @@ class Parser:
         except Exception as e:
             logger.error(f"[Extract PARSER] PARSER 추출 실패: {str(e)}")
             raise ParserError(f"PARSER 추출 실패: {str(e)}")
-
-    def _extract_type(self, text: str) -> str:
-        """
-        텍스트에서 TYPE 부분만 추출 (호환성을 위해 유지)
-        """
-        try:
-            logger.debug(f"[Extract TYPE] 입력된 텍스트:\n{text}")
-            
-            # TYPE 태그 시작과 끝 찾기 (공백과 줄바꿈 포함)
-            type_pattern = r"\s*<TYPE[^>]*>[\s\S]*?</TYPE>\s*"
-            match = re.search(type_pattern, text, re.DOTALL)
-            
-            if not match:
-                logger.error("[Extract TYPE] TYPE 태그를 찾을 수 없음")
-                logger.error(f"[Extract TYPE] 검색 패턴: {type_pattern}")
-                raise ParserError("TYPE 파싱 규칙을 찾을 수 없습니다")
-                
-            type_xml = match.group(0).strip()
-            logger.debug(f"[Extract TYPE] 추출된 TYPE:\n{type_xml}")
-            return type_xml
-            
-        except Exception as e:
-            logger.error(f"[Extract TYPE] TYPE 추출 실패: {str(e)}")
-            raise ParserError(f"TYPE 추출 실패: {str(e)}")
-
-    def wrap_generated_type(self, type_xml: str) -> str:
-        """
-        생성된 TYPE XML을 고정 구조로 감싸기 (더 이상 사용하지 않음)
-        """
-        logger.warning("[Wrap Generated Type] 이 함수는 더 이상 사용되지 않습니다. GPT가 전체 PARSER를 생성합니다.")
-        return f'''<?xml version="1.0" encoding="UTF-8"?>
-<PARSER
-    name="deepkds"
-    id="orderParser"
-    type="a"
-    cut=""
-    remove="▶|\\x10|\\r|!"
-    replace="">
-
-  <NORMAL contain="추가-|신규-|취소-|환불-|주방주문서" count="1">
-    {type_xml.strip()}
-  </NORMAL>
-</PARSER>'''
 
     def _validate_xml_structure(self, xml_str: str) -> None:
         """
@@ -600,24 +559,25 @@ class Parser:
             return items
 
     def generate_rule(self, receipt_data: Dict[str, Any]) -> Dict[str, Any]:
-        """새로운 파싱 규칙 생성 - GPT가 전체 PARSER 블록을 생성"""
+        """새로운 파싱 규칙 생성 - TYPE만 생성하고 고정 구조로 감싸기"""
         try:
             logger.debug("[Generate Rule] 새로운 파싱 규칙 생성 시작")
             logger.debug(f"[Generate Rule] 입력 데이터:\n{json.dumps(receipt_data, ensure_ascii=False, indent=2)}")
             
-            # protocol.py의 extract_receipt_raw_data 함수 사용 (문자열/객체 형태 모두 지원)
-            try:
-                raw_data = MessageFormat.extract_receipt_raw_data(receipt_data)
-                logger.debug(f"[Generate Rule] 추출된 raw_data(hex):\n{raw_data}")
-            except ValueError as e:
-                logger.error(f"[Generate Rule] raw_data 추출 실패: {str(e)}")
+            # receipt_data에서 raw_data(hex) 추출
+            if "raw_data" not in receipt_data.get("receipt_data", {}):
+                logger.error("[Generate Rule] raw_data를 찾을 수 없음")
                 logger.error(f"[Generate Rule] receipt_data 내용: {receipt_data.get('receipt_data', {})}")
-                raise ParserError(f"raw_data 추출 실패: {str(e)}")
+                raise ParserError("raw_data(hex)가 누락되었습니다")
+                
+            # hex 데이터를 텍스트로 변환
+            raw_data = receipt_data["receipt_data"]["raw_data"]
+            logger.debug(f"[Generate Rule] 입력된 raw_data(hex):\n{raw_data}")
             
             receipt_text = self._decode_raw_data(raw_data)
             logger.debug(f"[Generate Rule] 변환된 영수증 텍스트:\n{receipt_text}")
             
-            # 프롬프트 생성 및 로깅 (전체 PARSER 생성하도록 변경된 프롬프트 사용)
+            # 프롬프트 생성 및 로깅 (TYPE만 생성하도록 변경된 프롬프트 사용)
             prompt = self.prompt.format(receipt_text=receipt_text)
             logger.debug(f"[Generate Rule] GPT 프롬프트:\n{prompt}")
             
@@ -846,11 +806,6 @@ class Parser:
             # 모든 TYPE들 추출 및 검증
             merged_types = self._extract_multiple_types(llm_response)
             logger.debug(f"[Merge Rule] 추출된 TYPE 개수: {len(merged_types)}")
-            
-            # 각 TYPE 구조 검증
-            for i, type_xml in enumerate(merged_types):
-                self._validate_type_structure(type_xml)
-                logger.debug(f"[Merge Rule] TYPE {i+1} 구조 검증 완료")
             
             # 모든 TYPE을 고정 구조로 감싸기
             merged_xml = self._wrap_multiple_types(merged_types)

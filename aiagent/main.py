@@ -1,6 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 import threading
+from dotenv import load_dotenv
 from aiagent.core.broker import main as broker_main
 from aiagent.db.core import Base, engine
 import logging
@@ -9,6 +10,9 @@ import os
 import sys
 import codecs
 from aiagent.utils.logger import setup_logger, get_logger
+
+# .env 파일 로드 (가장 먼저 실행되어야 함)
+load_dotenv()
 
 # 로그 디렉토리 생성
 log_dir = "logs"
