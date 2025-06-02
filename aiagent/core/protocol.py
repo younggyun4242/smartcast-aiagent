@@ -33,9 +33,7 @@ ZeroMQ 메시지 프로토콜 정의 v1.0
          "mode": "GENERATE",
          "client_id": "클라이언트 ID",
          "transaction_id": "고유 거래 ID",
-         "receipt_data": "영수증 raw 데이터 (문자열)" 또는 {
-             "raw_data": "영수증 raw 데이터"
-         },
+         "receipt_data": "영수증 raw 데이터 (hex 문자열)",
          "version": "1.0"
      }
    - 성공 응답: [b'', b"AI_OK", client_id, transaction_id, json_response_data]
@@ -58,9 +56,7 @@ ZeroMQ 메시지 프로토콜 정의 v1.0
          "mode": "MERGE",
          "client_id": "클라이언트 ID",
          "transaction_id": "고유 거래 ID",
-         "receipt_data": "영수증 raw 데이터 (문자열)" 또는 {
-             "raw_data": "영수증 raw 데이터"
-         },
+         "receipt_data": "영수증 raw 데이터 (hex 문자열)",
          "current_xml": "현재 XML",
          "current_version": "현재 버전 (숫자 형식, 예: 1.0)",
          "version": "1.0"
@@ -145,26 +141,19 @@ class MessageFormat:
 
     @staticmethod
     def validate_receipt_data(receipt_data: Any) -> bool:
-        """영수증 데이터 검증 - 문자열 또는 객체 형태 모두 허용
+        """영수증 데이터 검증 - 문자열 형태만 허용
         
         Args:
-            receipt_data: 영수증 데이터 (문자열 또는 딕셔너리)
+            receipt_data: 영수증 데이터 (hex 문자열)
             
         Returns:
             bool: 검증 결과
             
         검증 항목:
         - receipt_data가 문자열인지 (직접 hex 데이터)
-        - 또는 receipt_data가 딕셔너리이고 raw_data 필드가 존재하는지
+        - 빈 문자열이 아닌지
         """
-        # 방법 1: 직접 문자열로 받는 경우 (ARBKYD 방식)
-        if isinstance(receipt_data, str):
-            return len(receipt_data.strip()) > 0
-        
-        # 방법 2: 객체 형태로 받는 경우 (기존 방식)
-        return (isinstance(receipt_data, dict) 
-                and "raw_data" in receipt_data 
-                and isinstance(receipt_data["raw_data"], str))
+        return isinstance(receipt_data, str) and len(receipt_data.strip()) > 0
 
     @staticmethod
     def validate_ai_generate_data(data: Dict[str, Any]) -> bool:
@@ -185,34 +174,27 @@ class MessageFormat:
 
     @staticmethod
     def extract_receipt_raw_data(data: Dict[str, Any]) -> str:
-        """영수증 raw_data 추출 - 문자열 또는 객체 형태 모두 지원
+        """영수증 raw_data 추출 - 문자열 형태만 지원
         
         Args:
             data: 전체 요청 데이터
             
         Returns:
-            str: 영수증 raw_data
+            str: 영수증 raw_data (hex 문자열)
             
         Raises:
             ValueError: receipt_data가 올바른 형식이 아닌 경우
         """
         receipt_data = data.get("receipt_data")
         
-        # 방법 1: 직접 문자열로 받는 경우 (ARBKYD 방식)
+        # 문자열 형태만 지원
         if isinstance(receipt_data, str):
             if not receipt_data.strip():
                 raise ValueError("receipt_data cannot be empty")
             return receipt_data
         
-        # 방법 2: 객체 형태로 받는 경우 (기존 방식)
-        if isinstance(receipt_data, dict):
-            raw_data = receipt_data.get("raw_data")
-            if not isinstance(raw_data, str):
-                raise ValueError("raw_data must be a string")
-            return raw_data
-        
-        # 둘 다 아닌 경우
-        raise ValueError("receipt_data must be a string or dictionary with raw_data field")
+        # 문자열이 아닌 경우 에러
+        raise ValueError("receipt_data must be a hex string")
 
 # 메시지 타입 상수
 class MessageType:

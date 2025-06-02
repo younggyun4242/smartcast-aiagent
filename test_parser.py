@@ -51,27 +51,25 @@ socket = context.socket(zmq.DEALER)
 socket.setsockopt(zmq.IDENTITY, client_id.encode())
 socket.connect(f"tcp://{BROKER_HOST}:{BROKER_PORT}")  # 환경변수 기반 연결
 
-# 테스트용 영수증 JSON 구성 (hex 데이터 사용)
+# 테스트용 영수증 JSON 구성 (직접 hex 문자열 사용)
 test_receipt = {
     "type": "xml",
     "mode": "GENERATE",
     "client_id": client_id,
     "transaction_id": transaction_id,
-    "receipt_data": {
-        "raw_data": "20202020201b21105ba2c2bdc5b1d42dc1d6b9e6c1d6b9aebcad5d2dc1d6b9e6311b21000d0a0a1b21100a5bc5d7c0ccbaed5d20b1e2babb2d313032205bbcd5b4d4bcf65d20303120b8ed0a5bc1d6b9aec0da5d20c0ccbcbcb5b9202020202020205bc1d6b9aeb9f8c8a35d20303131352d303030311b21000a3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d0a1b211020202020b8de2020b4ba2020b8ed2020202020202020202020202020202020bcf6b7ae202020b1b8bad00d0a2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d0d0ac2abbbcd20202020202020202020202020202020202020202020202020202020202031202020bdc5b1d40d0abdbab8b6c6ae2041bcbcc6ae2020202020202020202020202020202020202020202031202020bdc5b1d40d0aa2bac2fcc4a1b1e8b9e420202020202020202020202020202020202020202020202031202020bcb1c5c30d0aa2bab5c8c0e5c2eeb0b320202020202020202020202020202020202020202020202031202020bcb1c5c31b21000a2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d0a1b21100d0a5bc1d6b9e6b8deb8f05d201b21000a3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d0a504f533a30312020202020205bc1d6b9aebdc3b0a35d20323032352d30352d32322031343a32313a34320a0a0a0a0a0a1b69"
-    },
+    "receipt_data":"20202020201b21105ba2c2bdc5b1d42dc1d6b9e6c1d6b9aebcad5d2dc1d6b9e6311b21000d0a0a1b21100a5bc5d7c0ccbaed5d20b1e2babb2d313032205bbcd5b4d4bcf65d20303120b8ed0a5bc1d6b9aec0da5d20c0ccbcbcb5b9202020202020205bc1d6b9aeb9f8c8a35d20303131352d303030311b21000a3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d0a1b211020202020b8de2020b4ba2020b8ed2020202020202020202020202020202020bcf6b7ae202020b1b8bad00d0a2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d0d0ac2abbbcd20202020202020202020202020202020202020202020202020202020202031202020bdc5b1d40d0abdbab8b6c6ae2041bcbcc6ae2020202020202020202020202020202020202020202031202020bdc5b1d40d0aa2bac2fcc4a1b1e8b9e420202020202020202020202020202020202020202020202031202020bcb1c5c30d0aa2bab5c8c0e5c2eeb0b320202020202020202020202020202020202020202020202031202020bcb1c5c31b21000a2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d0a1b21100d0a5bc1d6b9e6b8deb8f05d201b21000a3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d0a504f533a30312020202020205bc1d6b9aebdc3b0a35d20323032352d30352d32322031343a32313a34320a0a0a0a0a0a1b69"
+    ,
     "version": "1.0"
 }
 
-# AI_MERGE 테스트용 데이터 (hex 데이터 사용)
+# AI_MERGE 테스트용 데이터 (직접 hex 문자열 사용) - 다른 영수증 데이터로 변경
 test_merge = {
     "type": "xml",
     "mode": "MERGE",
     "client_id": client_id,
     "transaction_id": str(uuid.uuid4()),
-    "receipt_data": {
-        "raw_data": "20202020201b21105ba2bac3dfb0a12dc1d6b9e6c1d6b9aebcad5d2dc1d6b9e6311b21000d0a0a1b21100a5bc5d7c0ccbaed5d20b1e2babb2d313032205bbcd5b4d4bcf65d20303120b8ed0a5bc1d6b9aec0da5d20c0ccbcbcb5b9202020202020205bc1d6b9aeb9f8c8a35d20303131352d303030321b21000a3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d0a1b211020202020b8de2020b4ba2020b8ed2020202020202020202020202020202020bcf6b7ae202020b1b8bad00d0a2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d0d0ac2abbbcd20202020202020202020202020202020202020202020202020202020202d31202020c3ebbcd21b21000a2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d0a1b21100d0a5bc1d6b9e6b8deb8f05d201b21000a3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d0a504f533a30312020202020205bc1d6b9aebdc3b0a35d20323032352d30352d32322031343a32323a30310a0a0a0a0a0a1b69"
-    },
+    "receipt_data":"20202020201b21105ba2bac3dfb0a12dc1d6b9e6c1d6b9aebcad5d2dc1d6b9e6311b21000d0a0a1b21100a5bc5d7c0ccbaed5d20b1e2babb2d313032205bbcd5b4d4bcf65d20303120b8ed0a5bc1d6b9aec0da5d20c0ccbcbcb5b9202020202020205bc1d6b9aeb9f8c8a35d20303131352d303030321b21000a3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d0a1b211020202020b8de2020b4ba2020b8ed2020202020202020202020202020202020bcf6b7ae202020b1b8bad00d0a2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d0d0ac2abbbcd20202020202020202020202020202020202020202020202020202020202d31202020c3ebbcd21b21000a2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d0a1b21100d0a5bc1d6b9e6b8deb8f05d201b21000a3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d0a504f533a30312020202020205bc1d6b9aebdc3b0a35d20323032352d30352d32322031343a32323a30310a0a0a0a0a0a1b69"
+    ,
     "current_xml": None,  # AI_GENERATE 응답에서 받은 XML을 여기에 설정
     "current_version": None,  # AI_GENERATE 응답에서 받은 버전을 여기에 설정
     "version": "1.0"
@@ -121,18 +119,22 @@ try:
 
                 if len(response) >= 5:  # transaction_id 추가로 5개 프레임
                     if response[1] == b"AI_OK":
-                        generate_result = json.loads(response[4].decode(errors='ignore'))  # response[4]로 변경
+                        generate_result = json.loads(response[4].decode(errors='ignore'))
                         logger.info("✅ AI_GENERATE 성공")
-                        logger.info(f"📋 Transaction ID: {response[3].decode()}")  # transaction_id 로깅 추가
+                        logger.info(f"📋 Transaction ID: {response[3].decode()}")
                         logger.info("=== 생성 결과 ===")
                         logger.info(json.dumps(generate_result, indent=2, ensure_ascii=False))
 
-                        # AI_MERGE 테스트 준비
-                        test_merge["current_xml"] = generate_result["rule_xml"]
-                        test_merge["current_version"] = generate_result["version"]
+                        # AI_MERGE 테스트 준비 - 키 수정
+                        test_merge["current_xml"] = generate_result["data"]["xml_rule"]
+                        test_merge["current_version"] = generate_result["data"]["version"]
 
                         # 3. AI_MERGE 테스트
                         logger.info("\n=== 🔄 AI_MERGE 테스트 시작 ===")
+                        
+                        # transaction_id 새로 생성
+                        test_merge["transaction_id"] = str(uuid.uuid4())
+                        
                         merge_json = json.dumps(test_merge, ensure_ascii=False)
                         encoded_merge = merge_json.encode("utf-8")
 
@@ -148,21 +150,27 @@ try:
                         logger.info("📤 AI_MERGE 요청 전송 완료")
 
                         # AI_MERGE 응답 수신
-                        if socket.poll(10000):  # 10초 대기
+                        if socket.poll(15000):  # 15초 대기
                             merge_response = socket.recv_multipart()
                             logger.info(f"📥 응답 수신: {len(merge_response)} 프레임")
 
-                            if len(merge_response) >= 5 and merge_response[1] == b"AI_OK":  # 5로 변경
-                                merge_result = json.loads(merge_response[4].decode(errors='ignore'))  # response[4]로 변경
+                            if len(merge_response) >= 5 and merge_response[1] == b"AI_OK":
+                                merge_result = json.loads(merge_response[4].decode(errors='ignore'))
                                 logger.info("✅ AI_MERGE 성공")
-                                logger.info(f"📋 Transaction ID: {merge_response[3].decode()}")  # transaction_id 로깅 추가
+                                logger.info(f"📋 Transaction ID: {merge_response[3].decode()}")
                                 logger.info("=== 병합 결과 ===")
                                 logger.info(json.dumps(merge_result, indent=2, ensure_ascii=False))
+                            elif len(merge_response) >= 5 and merge_response[1] == b"AI_ERROR":
+                                error_result = json.loads(merge_response[4].decode(errors='ignore'))
+                                logger.error("❌ AI_MERGE 실패")
+                                logger.error(f"📋 Transaction ID: {merge_response[3].decode()}")
+                                logger.error("=== 오류 내용 ===")
+                                logger.error(json.dumps(error_result, indent=2, ensure_ascii=False))
                             else:
                                 logger.warning("❗ AI_MERGE 예상치 못한 응답 형식")
                                 logger.warning(f"전체 응답: {[r.decode(errors='ignore') for r in merge_response]}")
                         else:
-                            logger.error("❗ AI_MERGE 응답 타임아웃")
+                            logger.error("❗ AI_MERGE 응답 타임아웃 (15초)")
                     elif response[1] == b"AI_ERROR":
                         error_result = json.loads(response[4].decode(errors='ignore'))  # response[4]로 변경
                         logger.error("❌ AI_GENERATE 실패")

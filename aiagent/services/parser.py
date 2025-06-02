@@ -16,6 +16,7 @@ from openai import OpenAIError, APIError, RateLimitError, APIConnectionError, Ba
 from binascii import unhexlify
 from ..utils.logger import get_logger
 from ..core.protocol import MessageFormat
+import base64
 
 # 로깅 설정
 logger = get_logger('aiagent.services.parser')
@@ -70,23 +71,49 @@ class Parser:
         self.merge_prompt = PromptTemplate(
             input_variables=["current_xml", "receipt_data"],
             template="""
-기존 XML 파싱 규칙과 새로운 영수증 데이터를 분석하여 개선된 TYPE 규칙을 생성해주세요.
+기존 PARSER XML과 새로운 영수증 데이터를 분석하여 개선된 전체 PARSER 규칙을 생성해주세요.
 
-기존 XML 규칙:
-{{current_xml}}
+기존 PARSER XML:
+{current_xml}
 
 새로운 영수증 데이터:
-{{receipt_data}}
+{receipt_data}
 
-목표:
-1. 새로운 영수증 형식을 올바르게 처리할 수 있도록 TYPE 규칙을 업데이트하세요.
-2. 기존 구조를 최대한 유지하면서 필요한 부분만 수정하세요.
-3. 새로운 패턴이나 예외 사항을 처리할 수 있도록 규칙을 확장하세요.
+분석 및 처리 지침:
+1. **타입 판별**: 새로운 영수증의 타입을 분석 (신규/변경/취소/주방주문서 등)
+2. **기존 TYPE 유지**: 현재 존재하는 모든 TYPE를 그대로 유지
+3. **규칙 개선/추가**: 
+   - 동일한 타입이 있으면 기존 규칙을 개선
+   - 새로운 타입이면 새 TYPE 추가
+4. **NORMAL contain 업데이트**: 모든 타입을 포함하도록 contain 속성 수정
 
-지시사항:
-- 응답은 반드시 하나의 <TYPE> 블록만 포함해야 합니다.
-- 완전한 TYPE XML 구조를 생성하세요 (ORDER_ID, DATE, POS, MENU 등 모든 필수 태그 포함).
-- 설명이나 주석은 포함하지 마세요.
+중요한 규칙:
+- **정규식 백슬래시**: `\[주문번호\]` (하나만 사용)
+- **MENU end 마커**: `end="[주방메모]"` (백슬래시 이스케이프 사용 안함)
+- **필수 태그**: ORDER_ID, DATE, MENU는 반드시 포함
+- **자동 닫힘 태그**: 모든 태그는 `<TAG ... />` 형식
+- **인덱스 값**: idx_end는 음수 사용 (예: -2, -1)
+
+응답 형식:
+- 완전한 <PARSER>...</PARSER> 블록만 반환
+- 설명이나 주석 없이 XML만 출력
+- 기존 TYPE들과 새로운/개선된 TYPE 모두 포함
+
+예시 구조:
+<PARSER name="deepkds" id="orderParser" type="a" cut="" remove="..." replace="">
+  <NORMAL contain="신규-|변경-|취소-|주방주문서|..." count="1">
+    <TYPE name="신규" contain="신규-주방주문서">
+      <ORDER_ID regex="\[주문번호\]\s*(\d+-\d+)" />
+      <DATE regex="\[주문시간\]\s*(\d+-\d+-\d+\s+\d+:\d+:\d+)" />
+      <MENU begin="메  뉴  명" end="[주방메모]" skip="-|=">
+        <NAME idx_begin="0" idx_end="-2" />
+        <COUNT idx_begin="-2" />
+        <STATUS idx_begin="-1" />
+      </MENU>
+    </TYPE>
+    <!-- 기존 TYPE들도 모두 포함 -->
+  </NORMAL>
+</PARSER>
 """
         )
 
@@ -564,15 +591,13 @@ class Parser:
             logger.debug("[Generate Rule] 새로운 파싱 규칙 생성 시작")
             logger.debug(f"[Generate Rule] 입력 데이터:\n{json.dumps(receipt_data, ensure_ascii=False, indent=2)}")
             
-            # receipt_data에서 raw_data(hex) 추출
-            if "raw_data" not in receipt_data.get("receipt_data", {}):
-                logger.error("[Generate Rule] raw_data를 찾을 수 없음")
-                logger.error(f"[Generate Rule] receipt_data 내용: {receipt_data.get('receipt_data', {})}")
-                raise ParserError("raw_data(hex)가 누락되었습니다")
-                
-            # hex 데이터를 텍스트로 변환
-            raw_data = receipt_data["receipt_data"]["raw_data"]
-            logger.debug(f"[Generate Rule] 입력된 raw_data(hex):\n{raw_data}")
+            # MessageFormat의 extract_receipt_raw_data 사용 (프로토콜 준수)
+            try:
+                raw_data = MessageFormat.extract_receipt_raw_data(receipt_data)
+                logger.debug(f"[Generate Rule] 추출된 raw_data 길이: {len(raw_data)}")
+            except ValueError as e:
+                logger.error(f"[Generate Rule] raw_data 추출 실패: {str(e)}")
+                raise ParserError(f"receipt_data 추출 실패: {str(e)}")
             
             receipt_text = self._decode_raw_data(raw_data)
             logger.debug(f"[Generate Rule] 변환된 영수증 텍스트:\n{receipt_text}")
@@ -748,7 +773,7 @@ class Parser:
                     raise ParserError("TYPE 태그에 contain 속성이 없습니다")
                 
                 # TYPE 내 필수 하위 태그 확인
-                required_child_tags = {'ORDER_ID', 'TABLE_ID', 'MENU'}
+                required_child_tags = {'DATE', 'MENU'}
                 found_child_tags = {child.tag for child in type_elem}
                 missing_child_tags = required_child_tags - found_child_tags
                 if missing_child_tags:
@@ -773,214 +798,77 @@ class Parser:
         except Exception as e:
             raise ParserError(f"PARSER XML 구조 검증 실패: {str(e)}")
 
-    def merge_rule(self, current_xml: str, current_version: str, receipt_data: Dict[str, Any]) -> Dict[str, Any]:
-        """기존 XML과 새로운 데이터 병합 - GPT를 통해 적절한 순서로 TYPE 배치"""
-        try:
-            logger.debug("[Merge Rule] XML 병합 시작")
-            logger.debug(f"[Merge Rule] 현재 XML:\n{current_xml}")
-            logger.debug(f"[Merge Rule] 현재 버전: {current_version}")
+    def merge_rule(self, current_xml: str, receipt_data: dict, current_version: str = None) -> dict:
+        """
+        기존 PARSER XML과 새로운 영수증 데이터를 병합하여 개선된 PARSER를 생성합니다.
+        
+        Args:
+            current_xml: 기존 PARSER XML 문자열
+            receipt_data: 전체 요청 데이터 (receipt_data 키에 hex 문자열 포함)
+            current_version: 현재 파서 버전 (선택적)
             
-            # protocol.py의 extract_receipt_raw_data 함수 사용 (문자열/객체 형태 모두 지원)
+        Returns:
+            dict: 병합된 PARSER 정보
+        """
+        try:
+            logger.debug(f"[Merge Rule] 현재 버전: {current_version}")
+            logger.debug(f"[Merge Rule] 입력 데이터 타입: {type(receipt_data)}")
+            logger.debug(f"[Merge Rule] 입력 데이터: {receipt_data}")
+            
+            # MessageFormat의 extract_receipt_raw_data 사용 (프로토콜 준수)
             try:
                 raw_data = MessageFormat.extract_receipt_raw_data(receipt_data)
-                logger.debug(f"[Merge Rule] 추출된 raw_data(hex):\n{raw_data}")
+                logger.debug(f"[Merge Rule] 추출된 raw_data 길이: {len(raw_data)}")
             except ValueError as e:
                 logger.error(f"[Merge Rule] raw_data 추출 실패: {str(e)}")
-                raise ParserError(f"raw_data 추출 실패: {str(e)}")
+                raise ParserError(f"receipt_data 추출 실패: {str(e)}")
             
+            # hex 데이터를 텍스트로 변환
             receipt_text = self._decode_raw_data(raw_data)
-            logger.debug(f"[Merge Rule] 변환된 영수증 텍스트:\n{receipt_text}")
             
-            # 기존 XML에서 TYPE 규칙들 추출
-            existing_types = self._extract_existing_types(current_xml)
-            logger.debug(f"[Merge Rule] 기존 TYPE 개수: {len(existing_types)}")
+            logger.debug(f"[Merge Rule] 기존 XML 길이: {len(current_xml)}")
+            logger.debug(f"[Merge Rule] 새로운 영수증 텍스트: {receipt_text[:200]}...")
             
-            # 병합 프롬프트 생성 (여러 TYPE을 적절한 순서로 배치)
-            merge_prompt = self._create_merge_prompt(existing_types, receipt_text)
-            logger.debug(f"[Merge Rule] 병합 프롬프트:\n{merge_prompt}")
+            # GPT를 통해 병합된 PARSER 생성
+            prompt = self.merge_prompt.format(current_xml=current_xml, receipt_data=receipt_text)
+            logger.debug(f"[Merge Rule] GPT 프롬프트:\n{prompt}")
             
-            # LLM 호출하여 병합된 TYPE들 생성
-            llm_response = self._call_llm(merge_prompt)
-            logger.debug(f"[Merge Rule] GPT 응답 원본:\n{llm_response}")
+            response = self.llm.invoke(prompt)
+            merged_xml = response.content.strip()
             
-            # 모든 TYPE들 추출 및 검증
-            merged_types = self._extract_multiple_types(llm_response)
-            logger.debug(f"[Merge Rule] 추출된 TYPE 개수: {len(merged_types)}")
+            logger.debug(f"[Merge Rule] GPT 응답:\n{merged_xml}")
             
-            # 모든 TYPE을 고정 구조로 감싸기
-            merged_xml = self._wrap_multiple_types(merged_types)
-            logger.debug(f"[Merge Rule] 병합된 XML:\n{merged_xml}")
+            # PARSER 블록 추출 및 검증
+            parser_xml = self._extract_parser(merged_xml)
+            if not parser_xml:
+                raise ParserError("병합된 응답에서 PARSER 블록을 찾을 수 없습니다")
             
-            # 병합된 규칙을 실제 데이터에 적용해보기 (검증)
+            # XML 유효성 검증
+            self._validate_parser_structure(parser_xml)
+            
+            # 새 버전 생성 (기존 버전에서 0.1 증가)
             try:
-                logger.debug("[Merge Rule] 병합된 규칙 적용 테스트 시작")
-                test_result = self.apply_rule(receipt_text, merged_xml)
-                logger.debug(f"[Merge Rule] 규칙 적용 결과:\n{test_result}")
-                
-                # 파싱 결과 검증
-                self._validate_xml_structure(test_result)
-                logger.debug("[Merge Rule] 병합된 규칙 적용 결과 검증 완료")
-                
-            except Exception as e:
-                logger.error(f"[Merge Rule] 병합된 규칙 적용 테스트 실패: {str(e)}")
-                raise ParserError(f"병합된 파싱 규칙 검증 실패: {str(e)}")
+                new_version = str(float(current_version or "1.0") + 0.1)
+            except (ValueError, TypeError):
+                new_version = "1.1"
             
-            # 새 버전 생성 (+0.1)
-            new_version = self._increment_version(current_version)
+            logger.info("[Merge Rule] PARSER 병합 완료")
             
+            # generate_rule과 동일한 형식으로 반환
             return {
                 "status": "ok",
-                "merged_rule_xml": merged_xml,
+                "merged_rule_xml": parser_xml,
                 "version": new_version,
-                "changes": [f"새로운 영수증 패턴 추가 (총 {len(merged_types)}개 타입)"]
+                "changes": "기존 PARSER와 새로운 영수증 데이터 병합 완료"
             }
             
         except Exception as e:
-            logger.error(f"[Merge Rule] 병합 실패: {str(e)}")
-            raise ParserError(f"파싱 규칙 병합 실패: {str(e)}")
+            logger.error(f"[Merge Rule] PARSER 병합 실패: {str(e)}")
+            raise ParserError(f"PARSER 병합 실패: {str(e)}")
 
-    def _extract_existing_types(self, xml_str: str) -> list:
-        """기존 XML에서 TYPE들 추출"""
-        try:
-            # XML 파싱
-            root = ET.fromstring(xml_str)
-            normal_block = root.find("NORMAL")
-            if normal_block is None:
-                logger.warning("[Extract Existing Types] NORMAL 블록을 찾을 수 없음")
-                return []
-            
-            # 모든 TYPE 요소들 추출
-            types = []
-            for type_elem in normal_block.findall("TYPE"):
-                # TYPE 요소를 문자열로 변환
-                type_str = ET.tostring(type_elem, encoding='unicode')
-                types.append(type_str)
-                logger.debug(f"[Extract Existing Types] TYPE 추출: {type_elem.get('name', 'Unknown')}")
-            
-            logger.debug(f"[Extract Existing Types] 총 {len(types)}개 TYPE 추출됨")
-            return types
-            
-        except Exception as e:
-            logger.error(f"[Extract Existing Types] TYPE 추출 실패: {str(e)}")
-            return []
-
-    def _create_merge_prompt(self, existing_types: list, new_receipt: str) -> str:
-        """여러 TYPE을 적절한 순서로 배치하는 프롬프트 생성"""
-        
-        # 기존 TYPE들을 문자열로 조합
-        existing_types_str = "\n\n".join(existing_types) if existing_types else "기존 TYPE 없음"
-        
-        prompt = f"""
-기존 파싱 규칙들과 새로운 영수증 데이터를 분석하여, 모든 TYPE들을 적절한 순서로 배치한 완전한 파싱 규칙을 생성해주세요.
-
-기존 TYPE 규칙들:
-{existing_types_str}
-
-새로운 영수증 데이터:
-{new_receipt}
-
-작업 지시사항:
-1. 새로운 영수증 데이터에 맞는 새로운 TYPE을 생성하세요.
-2. 기존 TYPE들은 최대한 유지하되, 필요시 개선하세요.
-3. 모든 TYPE들을 적절한 우선순위 순서로 배치하세요 (더 구체적인 패턴이 앞에 오도록).
-4. 각 TYPE은 고유한 name과 contain 속성을 가져야 합니다.
-
-응답 형식:
-- 여러 개의 <TYPE>...</TYPE> 블록을 순서대로 나열해주세요.
-- 각 TYPE은 완전한 구조(ORDER_ID, DATE, POS, MENU 포함)를 가져야 합니다.
-- 설명이나 주석은 포함하지 마세요.
-- TYPE 태그 외의 다른 태그는 포함하지 마세요.
-
-예시:
-<TYPE name="타입1" contain="패턴1">
-  <ORDER_ID ... />
-  <DATE ... />
-  <POS ... />
-  <MENU ...>
-    <NAME ... />
-    <COUNT ... />
-    <STATUS ... />
-  </MENU>
-</TYPE>
-
-<TYPE name="타입2" contain="패턴2">
-  ...
-</TYPE>
-"""
-        return prompt
-
-    def _extract_multiple_types(self, response: str) -> list:
-        """GPT 응답에서 여러 TYPE들 추출"""
-        try:
-            logger.debug(f"[Extract Multiple Types] GPT 응답 분석 시작")
-            
-            # TYPE 태그들을 모두 찾기
-            type_pattern = r'<TYPE[^>]*>[\s\S]*?</TYPE>'
-            matches = re.findall(type_pattern, response, re.DOTALL)
-            
-            types = []
-            for i, match in enumerate(matches):
-                # 각 TYPE의 공백 정리
-                type_xml = match.strip()
-                logger.debug(f"[Extract Multiple Types] TYPE {i+1} 추출: {type_xml[:100]}...")
-                types.append(type_xml)
-            
-            logger.debug(f"[Extract Multiple Types] 총 {len(types)}개 TYPE 추출됨")
-            
-            if not types:
-                logger.error("[Extract Multiple Types] TYPE 태그를 찾을 수 없음")
-                raise ParserError("GPT 응답에서 TYPE 태그를 찾을 수 없습니다")
-            
-            return types
-            
-        except Exception as e:
-            logger.error(f"[Extract Multiple Types] TYPE 추출 실패: {str(e)}")
-            raise ParserError(f"Multiple TYPE 추출 실패: {str(e)}")
-
-    def _wrap_multiple_types(self, types: list) -> str:
-        """여러 TYPE을 고정 구조로 감싸기"""
-        try:
-            # 모든 TYPE들을 NORMAL 블록 안에 배치
-            types_content = "\n    ".join(types)
-            
-            wrapped_xml = f'''<?xml version="1.0" encoding="UTF-8"?>
-<PARSER
-    name="deepkds"
-    id="orderParser"
-    type="a"
-    cut="n"
-    remove="a!0|a1|a0|B0|E0|!F|!@|!|[CUT]|대기번호확인"
-    replace="[BIG]=[NOR]|[VER]=[NOR]|[BLD]=[NOR]|[BAR]=[NOR]영수증번호 : |[NOR]=\\n">
-
-  <NORMAL contain="추가-|신규-|취소-|환불-|주방주문서" count="1">
-    {types_content}
-  </NORMAL>
-</PARSER>'''
-
-            logger.debug(f"[Wrap Multiple Types] {len(types)}개 TYPE을 PARSER 구조로 감쌈")
-            return wrapped_xml
-            
-        except Exception as e:
-            logger.error(f"[Wrap Multiple Types] XML 감싸기 실패: {str(e)}")
-            raise ParserError(f"Multiple TYPE XML 감싸기 실패: {str(e)}")
-
-    def _increment_version(self, current_version: str) -> str:
-        """버전 번호 +0.1 (숫자 형식)"""
-        try:
-            # "1.0" 형식에서 0.1 증가
-            version_float = float(current_version)
-            new_version = round(version_float + 0.1, 1)
-            new_version_str = str(new_version)
-            logger.debug(f"[Increment Version] {current_version} → {new_version_str}")
-            return new_version_str
-            
-        except ValueError:
-            # 파싱 실패시 기본 처리
-            logger.warning(f"[Increment Version] 버전 파싱 실패, 기본 처리: {current_version}")
-            return "1.1"
-        except Exception as e:
-            logger.error(f"[Increment Version] 예외 발생: {str(e)}")
-            return "1.1"
+    def _extract_parser_block(self, response: str) -> str:
+        """응답에서 PARSER 블록을 추출합니다. (기존 _extract_parser 메서드 활용)"""
+        return self._extract_parser(response)
 
 # 싱글톤 인스턴스 생성
 try:
