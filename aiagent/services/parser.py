@@ -815,13 +815,29 @@ class Parser:
             logger.debug(f"[Merge Rule] 입력 데이터 타입: {type(receipt_raw_data)}")
             logger.debug(f"[Merge Rule] 입력 데이터: {receipt_raw_data}")
             
-            # receipt_raw_data에서 raw_data(hex) 추출
-            if "raw_data" not in receipt_raw_data.get("receipt_data", {}):
+            # receipt_raw_data에서 raw_data(hex) 추출 - 다양한 경우 처리
+            raw_data = None
+            
+            # 케이스 1: receipt_data가 딕셔너리인 경우 (nested structure)
+            if isinstance(receipt_raw_data.get("receipt_data"), dict) and "raw_data" in receipt_raw_data["receipt_data"]:
+                raw_data = receipt_raw_data["receipt_data"]["raw_data"]
+                logger.debug("[Merge Rule] raw_data 추출: nested dict 구조")
+            
+            # 케이스 2: receipt_data가 직접 hex 문자열인 경우
+            elif isinstance(receipt_raw_data.get("receipt_data"), str):
+                raw_data = receipt_raw_data["receipt_data"]
+                logger.debug("[Merge Rule] raw_data 추출: 직접 hex 문자열")
+            
+            # 케이스 3: raw_data가 직접 있는 경우
+            elif "raw_data" in receipt_raw_data:
+                raw_data = receipt_raw_data["raw_data"]
+                logger.debug("[Merge Rule] raw_data 추출: 최상위 raw_data")
+            
+            if not raw_data:
                 logger.error("[Merge Rule] raw_data를 찾을 수 없음")
                 raise ParserError("raw_data(hex)가 누락되었습니다")
                 
             # hex 데이터를 텍스트로 변환
-            raw_data = receipt_raw_data["receipt_data"]["raw_data"]
             receipt_text = self._decode_raw_data(raw_data)
             logger.debug(f"[Merge Rule] 변환된 영수증 텍스트:\n{receipt_text}")
             
@@ -844,6 +860,21 @@ class Parser:
             
             # XML 유효성 검증
             self._validate_parser_structure(parser_xml)
+            logger.debug("[Merge Rule] PARSER 구조 검증 완료")
+            
+            # 병합된 규칙을 실제 데이터에 적용해보기 (검증)
+            try:
+                logger.debug("[Merge Rule] 병합된 규칙 적용 테스트 시작")
+                test_result = self.apply_rule(receipt_text, parser_xml)
+                logger.debug(f"[Merge Rule] 규칙 적용 결과:\n{test_result}")
+                
+                # 파싱 결과 검증
+                self._validate_xml_structure(test_result)
+                logger.debug("[Merge Rule] 병합된 규칙 적용 결과 검증 완료")
+                
+            except Exception as e:
+                logger.error(f"[Merge Rule] 병합된 규칙 적용 테스트 실패: {str(e)}")
+                raise ParserError(f"병합된 파싱 규칙 검증 실패: {str(e)}")
             
             # 새 버전 생성 (기존 버전에서 0.1 증가)
             try:

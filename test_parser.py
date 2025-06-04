@@ -112,73 +112,51 @@ try:
             ])
             logger.info("📤 AI_GENERATE 요청 전송 완료")
 
-            # AI_GENERATE 응답 수신
-            if socket.poll(10000):  # 10초 대기
+            # 응답 받기 (타임아웃 추가)
+            if socket.poll(timeout=30000):  # 30초 타임아웃
                 response = socket.recv_multipart()
-                logger.info(f"📥 응답 수신: {len(response)} 프레임")
-
-                if len(response) >= 5:  # transaction_id 추가로 5개 프레임
-                    if response[1] == b"AI_OK":
-                        generate_result = json.loads(response[4].decode(errors='ignore'))
-                        logger.info("✅ AI_GENERATE 성공")
-                        logger.info(f"📋 Transaction ID: {response[3].decode()}")
-                        logger.info("=== 생성 결과 ===")
-                        logger.info(json.dumps(generate_result, indent=2, ensure_ascii=False))
-
-                        # AI_MERGE 테스트 준비 - 키 수정
-                        test_merge["current_xml"] = generate_result["data"]["xml_rule"]
-                        test_merge["current_version"] = generate_result["data"]["version"]
-
-                        # 3. AI_MERGE 테스트
-                        logger.info("\n=== 🔄 AI_MERGE 테스트 시작 ===")
+                response_decoded = [part.decode('utf-8', errors='ignore') for part in response]
+                
+                print(f"📥 응답 수신: {len(response)} 프레임")
+                for i, frame in enumerate(response_decoded):
+                    print(f"  프레임 {i}: {repr(frame)}")
+                
+                # Raw 데이터도 출력
+                print(f"📥 Raw 응답:")
+                for i, frame in enumerate(response):
+                    print(f"  Raw 프레임 {i}: {frame}")
+                
+                try:
+                    if response_decoded[1] == "AI_OK":
+                        result_data = json.loads(response_decoded[3])
+                        print(f"✅ AI_GENERATE 성공!")
+                        print(f"📊 결과: {result_data}")
+                    elif response_decoded[1] == "AI_ERROR":
+                        print(f"❌ AI_GENERATE 실패!")
+                        # JSON 파싱 시도 전에 raw 데이터 확인
+                        error_frame = response_decoded[3] if len(response_decoded) > 3 else ""
+                        print(f"🔍 에러 프레임 raw: {repr(error_frame)}")
                         
-                        # transaction_id 새로 생성
-                        test_merge["transaction_id"] = str(uuid.uuid4())
+                        try:
+                            error_data = json.loads(error_frame)
+                            print(f"📊 에러 내용: {error_data}")
+                        except json.JSONDecodeError as e:
+                            print(f"❗ JSON 파싱 실패: {e}")
+                            print(f"❗ 파싱 시도한 데이터: {repr(error_frame)}")
+                            # 첫 몇 바이트만 확인
+                            if error_frame:
+                                print(f"❗ 첫 10자: {repr(error_frame[:10])}")
+                                print(f"❗ 마지막 10자: {repr(error_frame[-10:])}")
+                    else:
+                        print(f"⚠️ 예상치 못한 응답: {response_decoded}")
                         
-                        merge_json = json.dumps(test_merge, ensure_ascii=False)
-                        encoded_merge = merge_json.encode("utf-8")
+                except Exception as e:
+                    print(f"❗ 예외 발생: {e}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                print("⏰ 타임아웃: AI_GENERATE 응답을 받지 못했습니다")
 
-                        logger.debug(f"[전송 구조] [b'', b'AI_MERGE', {destination_id}, {len(encoded_merge)} bytes]")
-                        logger.debug(f"[요청 본문]:\n{merge_json}")
-
-                        socket.send_multipart([
-                            b"",
-                            b"AI_MERGE",
-                            destination_id,
-                            encoded_merge
-                        ])
-                        logger.info("📤 AI_MERGE 요청 전송 완료")
-
-                        # AI_MERGE 응답 수신
-                        if socket.poll(15000):  # 15초 대기
-                            merge_response = socket.recv_multipart()
-                            logger.info(f"📥 응답 수신: {len(merge_response)} 프레임")
-
-                            if len(merge_response) >= 5 and merge_response[1] == b"AI_OK":
-                                merge_result = json.loads(merge_response[4].decode(errors='ignore'))
-                                logger.info("✅ AI_MERGE 성공")
-                                logger.info(f"📋 Transaction ID: {merge_response[3].decode()}")
-                                logger.info("=== 병합 결과 ===")
-                                logger.info(json.dumps(merge_result, indent=2, ensure_ascii=False))
-                            elif len(merge_response) >= 5 and merge_response[1] == b"AI_ERROR":
-                                error_result = json.loads(merge_response[4].decode(errors='ignore'))
-                                logger.error("❌ AI_MERGE 실패")
-                                logger.error(f"📋 Transaction ID: {merge_response[3].decode()}")
-                                logger.error("=== 오류 내용 ===")
-                                logger.error(json.dumps(error_result, indent=2, ensure_ascii=False))
-                            else:
-                                logger.warning("❗ AI_MERGE 예상치 못한 응답 형식")
-                                logger.warning(f"전체 응답: {[r.decode(errors='ignore') for r in merge_response]}")
-                        else:
-                            logger.error("❗ AI_MERGE 응답 타임아웃 (15초)")
-                    elif response[1] == b"AI_ERROR":
-                        error_result = json.loads(response[4].decode(errors='ignore'))  # response[4]로 변경
-                        logger.error("❌ AI_GENERATE 실패")
-                        logger.error(f"📋 Transaction ID: {response[3].decode()}")  # transaction_id 로깅 추가
-                        logger.error("=== 오류 내용 ===")
-                        logger.error(json.dumps(error_result, indent=2, ensure_ascii=False))
-                else:
-                    logger.error("❌ 잘못된 응답 형식")
         else:
             logger.error("❌ 등록 실패")
             logger.error(f"응답 내용: {[r.decode(errors='ignore') for r in register_resp]}")

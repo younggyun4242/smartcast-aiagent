@@ -16,7 +16,7 @@ logger = get_logger('aiagent.core.broker')
 # 환경변수 기반 설정
 BROKER_HOST = os.getenv("BROKER_HOST", "localhost")
 BROKER_PORT = os.getenv("BROKER_PORT", "5555")
-CLIENT_ID = os.getenv("CLIENT_ID", "AIAGENT")
+CLIENT_ID = os.getenv("CLIENT_ID", "AIAGNT")
 RECONNECT_TIMEOUT = 5  # 재연결 대기 시간 (초)
 REGISTRATION_TIMEOUT = 3  # 등록 응답 대기 시간 (초)
 

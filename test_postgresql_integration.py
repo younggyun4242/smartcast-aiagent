@@ -130,7 +130,7 @@ def test_admin_api():
     
     try:
         from aiagent.repositories.parsing_error_repository import ParsingErrorRepository
-        from ailagent.repositories.parsing_error_repository import ParsingErrorRepository as NewRepo
+        from aiagent.repositories.parsing_error_repository import ParsingErrorRepository as NewRepo
         from aiagent.database import SessionLocal
         
         session = SessionLocal()
@@ -160,9 +160,9 @@ def test_models_integration():
         from aiagent.models.receipt_record import ReceiptRecord
         
         # 새로운 모델들
-        from ailagent.models.parsing_error import ParsingError
-        from ailagent.models.parsing_rule import ParsingRule
-        from ailagent.models.ml_training_data import MLTrainingData
+        from aiagent.models.parsing_error import ParsingError
+        from aiagent.models.parsing_rule import ParsingRule
+        from aiagent.models.ml_training_data import MLTrainingData
         
         logger.info("✅ 모든 모델 import 성공!")
         

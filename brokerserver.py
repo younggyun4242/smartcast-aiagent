@@ -4,6 +4,7 @@ AI AGENT ZeroMQ 브로커
 """
 import os
 import sys
+import logging
 from pathlib import Path
 
 # 프로젝트 루트를 Python 경로에 추가 (여러 방법 시도)
@@ -21,7 +22,6 @@ try:
     USE_CUSTOM_LOGGER = True
 except ImportError:
     # aiagent 모듈을 찾을 수 없는 경우 기본 로깅 사용
-    import logging
     USE_CUSTOM_LOGGER = False
     print("WARNING: aiagent 모듈을 찾을 수 없습니다. 기본 로깅을 사용합니다.")
 
@@ -106,7 +106,7 @@ def broker():
     ctx = zmq.Context()
     socket = ctx.socket(zmq.ROUTER)
     socket.bind("tcp://*:5555")
-    id_pattern = re.compile(r"^[A-Z]{6}$")
+    id_pattern = re.compile(r"^[A-Z]{6}$")  # 6자리 허용
 
     global last_active
     while True:

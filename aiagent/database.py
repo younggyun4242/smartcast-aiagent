@@ -4,7 +4,7 @@ PostgreSQL 전용 (SQLite 제거됨)
 """
 
 import os
-from sqlalchemy import create_engine, MetaData
+from sqlalchemy import create_engine, MetaData, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from aiagent.utils.logger import get_logger
@@ -80,7 +80,7 @@ def check_db_connection():
     """
     try:
         with engine.connect() as connection:
-            connection.execute("SELECT 1")
+            connection.execute(text("SELECT 1"))
         logger.info("PostgreSQL 연결 상태가 정상입니다.")
         return True
     except Exception as e:

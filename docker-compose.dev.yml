@@ -5,34 +5,68 @@ services:
   ai-agent:
     build: 
       context: .
-      dockerfile: Dockerfile.test
+      dockerfile: Dockerfile
     container_name: smartcast-aiagent-ai-agent-dev
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - BROKER_HOST=broker
       - BROKER_PORT=5555
       - LOG_LEVEL=DEBUG
+      - DATABASE_URL=postgresql://aiagent:aiagent123@postgres:5432/aiagent_dev
+      - TZ=Asia/Seoul
     volumes:
       - ./logs:/app/logs
-      - .:/app
+      - .:/app  # 개발용: 코드 변경 시 즉시 반영
       - /app/__pycache__  # 캐시 파일 제외
     depends_on:
       - broker
+      - postgres
     ports:
-      - "5000:5000"
-      - "8000:8000"  # 추가 디버깅 포트
+      - "8001:8000"  # 개발용 포트 (실무용과 충돌 방지)
     networks:
       - aiagent-dev-network
 
-  broker:
-    image: redis:7-alpine
-    container_name: smartcast-aiagent-broker-dev
+  # PostgreSQL 데이터베이스 (개발용)
+  postgres:
+    image: postgres:15-alpine
+    container_name: smartcast-aiagent-postgres-dev
     ports:
-      - "5557:6379"  # 개발용 포트
-    command: redis-server --loglevel verbose
+      - "5433:5432"  # 개발용 포트 (실무용과 충돌 방지)
+    environment:
+      - POSTGRES_DB=aiagent_dev
+      - POSTGRES_USER=aiagent
+      - POSTGRES_PASSWORD=aiagent123
+      - TZ=Asia/Seoul
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    networks:
+      - aiagent-dev-network
+
+  # ZeroMQ 브로커 서버 (개발용)
+  broker:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: smartcast-aiagent-broker-dev
+    command: python brokerserver.py
+    ports:
+      - "5556:5555"  # 개발용 포트 (실무용과 충돌 방지)
+    environment:
+      - LOG_LEVEL=DEBUG
+      - TZ=Asia/Seoul
+    volumes:
+      - ./logs:/app/logs
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     networks:
       - aiagent-dev-network
 
 networks:
   aiagent-dev-network:
-    driver: bridge 
+    driver: bridge
+
+volumes:
+  postgres_dev_data:
+  logs: 

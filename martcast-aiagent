@@ -1,1 +1,0 @@
-[33m95aebed[m[33m ([m[1;31morigin/feature/postgresql-integration[m[33m)[m feat: PostgreSQL 통합 및 시스템 현대화 완료 - SQLite 제거, TYPE 기반 파서, 관리자 API 추가

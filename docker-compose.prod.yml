@@ -1,0 +1,70 @@
+# 운영용 Docker Compose (외부 브로커 전용)
+# 
+# 사용법:
+# BROKER_HOST=external-broker.yourdomain.com docker-compose -f docker-compose.prod.yml up -d
+
+services:
+  ai-agent:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: smartcast-aiagent-ai-agent-prod
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BROKER_HOST=${BROKER_HOST}  # 필수: 외부 브로커서버 주소
+      - BROKER_PORT=${BROKER_PORT}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DATABASE_URL=postgresql://aiagent:aiagent123@postgres:5432/aiagent
+      - TZ=Asia/Seoul
+    volumes:
+      - ./logs:/app/logs
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    networks:
+      - aiagent-prod-network
+    deploy:
+      resources:
+        limits:
+          cpus: '30.0'      # 32코어 중 30코어 사용
+          memory: 56G       # 62GB 중 56GB 사용
+        reservations:
+          cpus: '8.0'       # 최소 8코어 보장
+          memory: 8G        # 최소 8GB 보장
+
+  # PostgreSQL 데이터베이스 (운영용)
+  postgres:
+    image: postgres:15-alpine
+    container_name: smartcast-aiagent-postgres-prod
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-aiagent}
+      - POSTGRES_USER=${POSTGRES_USER:-aiagent}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-aiagent123}
+      - TZ=Asia/Seoul
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    restart: unless-stopped
+    networks:
+      - aiagent-prod-network
+    deploy:
+      resources:
+        limits:
+          cpus: '8.0'       # PostgreSQL용 8코어
+          memory: 16G       # PostgreSQL용 16GB
+        reservations:
+          cpus: '2.0'       # 최소 2코어 보장
+          memory: 4G        # 최소 4GB 보장
+
+networks:
+  aiagent-prod-network:
+    driver: bridge
+
+volumes:
+  postgres_prod_data:
+  logs: 

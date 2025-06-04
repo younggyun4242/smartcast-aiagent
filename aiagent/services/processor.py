@@ -43,15 +43,27 @@ class BillProcessor:
             logger.debug(f"[DB Save] 저장 시작 - transaction_id: {transaction_id}")
             logger.debug(f"[DB Save] 상태 - is_valid: {is_valid}, processing_time: {processing_time:.2f}s")
             
-            record = ReceiptRecord(
-                client_id=client_id,
-                transaction_id=transaction_id,
-                raw_data=raw_data,
-                xml_result=xml_result,
-                is_valid=is_valid,
-                error_message=error_message,
-                processing_time=processing_time
-            )
+            # is_valid 값에 따라 status 결정
+            status = "SUCCESS" if is_valid else "ERROR"
+            
+            if is_valid:
+                record = ReceiptRecord.create_success(
+                    client_id=client_id,
+                    transaction_id=transaction_id,
+                    raw_data=raw_data,
+                    receipt_data=None,  # JSON 파싱된 데이터가 있다면 여기 추가
+                    xml_result=xml_result,
+                    processing_time=processing_time
+                )
+            else:
+                record = ReceiptRecord.create_error(
+                    client_id=client_id,
+                    transaction_id=transaction_id,
+                    raw_data=raw_data,
+                    error_message=error_message,
+                    processing_time=processing_time
+                )
+            
             session.add(record)
             session.commit()
             
@@ -187,7 +199,7 @@ class BillProcessor:
             result = self.parser.merge_rule(
                 current_xml=data["current_xml"],
                 current_version=data["current_version"],
-                receipt_data=data  # 전체 data 객체를 전달 (receipt_data 포함)
+                receipt_raw_data=data  # receipt_raw_data로 매개변수명 변경
             )
             
             # DB에 결과 저장

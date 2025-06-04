@@ -5,8 +5,8 @@
 
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from ailagent.api.dependencies import get_admin_service
-from ailagent.api.v1.admin.schemas import (
+from aiagent.api.dependencies import get_admin_service
+from aiagent.api.v1.admin.schemas import (
     ParsingErrorListResponse,
     ParsingErrorDetailResponse,
     UpdateParsingRuleRequest,
@@ -21,9 +21,9 @@ from ailagent.api.v1.admin.schemas import (
     BulkUpdateStatusResponse,
     ErrorResponse
 )
-from ailagent.services.admin_service import AdminService
-from ailagent.exceptions import NotFoundError, ValidationError, BusinessLogicError, ParseRuleTestError
-from ailagent.utils.logger import get_logger
+from aiagent.services.admin_service import AdminService
+from aiagent.exceptions import NotFoundError, ValidationError, BusinessLogicError, ParseRuleTestError
+from aiagent.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
