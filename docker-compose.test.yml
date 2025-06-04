@@ -1,0 +1,35 @@
+# 테스트용 Docker Compose
+version: '3.8'
+
+services:
+  ai-agent:
+    build: 
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: smartcast-aiagent-ai-agent-test
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BROKER_HOST=broker
+      - BROKER_PORT=5555
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./logs:/app/logs
+      - .:/app  # 코드 변경 시 즉시 반영 (개발용)
+    depends_on:
+      - broker
+    ports:
+      - "5000:5000"  # 디버깅용 포트 노출
+    networks:
+      - aiagent-test-network
+
+  broker:
+    image: redis:7-alpine
+    container_name: smartcast-aiagent-broker-test
+    ports:
+      - "5556:6379"  # 테스트용 다른 포트
+    networks:
+      - aiagent-test-network
+
+networks:
+  aiagent-test-network:
+    driver: bridge 

@@ -1,0 +1,38 @@
+# 개발용 Docker Compose
+version: '3.8'
+
+services:
+  ai-agent:
+    build: 
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: smartcast-aiagent-ai-agent-dev
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BROKER_HOST=broker
+      - BROKER_PORT=5555
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./logs:/app/logs
+      - .:/app
+      - /app/__pycache__  # 캐시 파일 제외
+    depends_on:
+      - broker
+    ports:
+      - "5000:5000"
+      - "8000:8000"  # 추가 디버깅 포트
+    networks:
+      - aiagent-dev-network
+
+  broker:
+    image: redis:7-alpine
+    container_name: smartcast-aiagent-broker-dev
+    ports:
+      - "5557:6379"  # 개발용 포트
+    command: redis-server --loglevel verbose
+    networks:
+      - aiagent-dev-network
+
+networks:
+  aiagent-dev-network:
+    driver: bridge 

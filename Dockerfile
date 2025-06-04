@@ -7,20 +7,23 @@ RUN apt-get update && apt-get install -y tzdata && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # 작업 디렉토리 지정
-WORKDIR /aiagent
+WORKDIR /app
 
-# 의존성 설치
+# 의존성 먼저 복사 및 설치 (Docker 캐시 최적화)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 소스 복사
-COPY . .
+# 필요한 소스만 선택적 복사 (더 정확한 방법)
+COPY aiagent/ ./aiagent/
+COPY *.py ./
 
 # 환경 변수
 ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/aiagent/aiagent
+ENV PYTHONPATH=/app
 ENV TZ=Asia/Seoul
+ENV LOG_LEVEL=INFO
 
-# FastAPI 실행 (모니터링용)
-CMD ["uvicorn", "aiagent.main:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 5000
+
+CMD ["python", "-m", "aiagent.main"]
 

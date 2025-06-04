@@ -1,9 +1,50 @@
+# 개발/테스트 관련 파일 제외
+scripts/
+test_parser.py
+docker-compose.test.yml
+docker-compose.dev.yml
+Dockerfile.test
+
+# Git 관련
+.git/
+.gitignore
+
+# Python 관련
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.env
-.env.*
+.Python
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# IDE 관련
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 로그 파일
+logs/
 *.log
+
+# 임시 파일
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# 환경 설정
+.env
+.env.local
+.env.development
+.env.test
+
+# 문서
+README.md
+docs/
+
+.env.*
 *.sqlite3
 
