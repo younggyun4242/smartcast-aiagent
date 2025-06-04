@@ -798,33 +798,32 @@ class Parser:
         except Exception as e:
             raise ParserError(f"PARSER XML 구조 검증 실패: {str(e)}")
 
-    def merge_rule(self, current_xml: str, receipt_data: dict, current_version: str = None) -> dict:
+    def merge_rule(self, current_xml: str, current_version: str, receipt_raw_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         기존 PARSER XML과 새로운 영수증 데이터를 병합하여 개선된 PARSER를 생성합니다.
         
         Args:
             current_xml: 기존 PARSER XML 문자열
-            receipt_data: 전체 요청 데이터 (receipt_data 키에 hex 문자열 포함)
-            current_version: 현재 파서 버전 (선택적)
+            current_version: 현재 파서 버전
+            receipt_raw_data: 새로운 영수증 데이터 (raw_data 키에 hex 문자열 포함)
             
         Returns:
             dict: 병합된 PARSER 정보
         """
         try:
             logger.debug(f"[Merge Rule] 현재 버전: {current_version}")
-            logger.debug(f"[Merge Rule] 입력 데이터 타입: {type(receipt_data)}")
-            logger.debug(f"[Merge Rule] 입력 데이터: {receipt_data}")
+            logger.debug(f"[Merge Rule] 입력 데이터 타입: {type(receipt_raw_data)}")
+            logger.debug(f"[Merge Rule] 입력 데이터: {receipt_raw_data}")
             
-            # MessageFormat의 extract_receipt_raw_data 사용 (프로토콜 준수)
-            try:
-                raw_data = MessageFormat.extract_receipt_raw_data(receipt_data)
-                logger.debug(f"[Merge Rule] 추출된 raw_data 길이: {len(raw_data)}")
-            except ValueError as e:
-                logger.error(f"[Merge Rule] raw_data 추출 실패: {str(e)}")
-                raise ParserError(f"receipt_data 추출 실패: {str(e)}")
-            
+            # receipt_raw_data에서 raw_data(hex) 추출
+            if "raw_data" not in receipt_raw_data.get("receipt_data", {}):
+                logger.error("[Merge Rule] raw_data를 찾을 수 없음")
+                raise ParserError("raw_data(hex)가 누락되었습니다")
+                
             # hex 데이터를 텍스트로 변환
+            raw_data = receipt_raw_data["receipt_data"]["raw_data"]
             receipt_text = self._decode_raw_data(raw_data)
+            logger.debug(f"[Merge Rule] 변환된 영수증 텍스트:\n{receipt_text}")
             
             logger.debug(f"[Merge Rule] 기존 XML 길이: {len(current_xml)}")
             logger.debug(f"[Merge Rule] 새로운 영수증 텍스트: {receipt_text[:200]}...")

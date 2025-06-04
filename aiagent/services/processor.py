@@ -6,8 +6,8 @@ from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 from .parser import parser, ParserError
 from ..api.admin import update_metrics
-from ..db.core import SessionLocal
-from ..db.models import ReceiptRecord
+from ..database import SessionLocal  # PostgreSQL 통합 (기존: ..db.core)
+from ..models.receipt_record import ReceiptRecord  # PostgreSQL 통합 모델
 from ..core.protocol import MessageFormat
 from ..utils.logger import get_logger
 
@@ -79,7 +79,7 @@ class BillProcessor:
         error_message = str(error)
         
         try:
-            # DB에 오류 기록
+            # DB에 오류 기록 (관리자 페이지에서 확인 가능)
             logger.debug("[Error Handler] DB에 오류 기록 시도")
             self._save_to_db(
                 session=session,
@@ -90,7 +90,7 @@ class BillProcessor:
                 error_message=error_message,
                 processing_time=processing_time
             )
-            
+            logger.info(f"[Error Handler] 오류가 DB에 기록되었습니다. 관리자 페이지에서 확인 가능: {transaction_id}")
             
         except Exception as e:
             logger.error(f"[Error Handler] 오류 처리 중 추가 오류 발생: {str(e)}")

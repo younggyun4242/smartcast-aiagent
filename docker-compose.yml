@@ -1,4 +1,4 @@
-# 실무용 Docker Compose
+# 실무용 Docker Compose (PostgreSQL 통합)
 version: '3.8'
 
 services:
@@ -12,10 +12,35 @@ services:
       - BROKER_HOST=broker
       - BROKER_PORT=5555
       - LOG_LEVEL=INFO
+      - DATABASE_URL=postgresql://aiagent:aiagent123@postgres:5432/aiagent
+      - TZ=Asia/Seoul
     volumes:
       - ./logs:/app/logs
-    depends_on:
+      # 시스템 시간대 파일 마운트 (추가 안정성)
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    restart: unless-stopped
+    depends_on:  # broker와 postgres 서비스가 시작된 후에 시작하도록 설정
       - broker
+      - postgres
+    networks:
+      - aiagent-network
+
+  # PostgreSQL 데이터베이스
+  postgres:
+    image: postgres:15-alpine
+    container_name: smartcast-aiagent-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=aiagent
+      - POSTGRES_USER=aiagent
+      - POSTGRES_PASSWORD=aiagent123
+      - TZ=Asia/Seoul
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     restart: unless-stopped
     networks:
       - aiagent-network
@@ -34,4 +59,5 @@ networks:
     driver: bridge
 
 volumes:
+  postgres_data:
   logs:
