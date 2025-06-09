@@ -127,29 +127,35 @@ try:
                     print(f"  Raw 프레임 {i}: {frame}")
                 
                 try:
-                    if response_decoded[1] == "AI_OK":
-                        result_data = json.loads(response_decoded[3])
-                        print(f"✅ AI_GENERATE 성공!")
-                        print(f"📊 결과: {result_data}")
-                    elif response_decoded[1] == "AI_ERROR":
+                    if len(response_decoded) > 1 and response_decoded[1] == "AI_OK":
+                        if len(response_decoded) > 4:
+                            # 수정: response_decoded[4]가 실제 JSON 데이터
+                            result_data = json.loads(response_decoded[4])
+                            print(f"✅ AI_GENERATE 성공!")
+                            print(f"📊 결과: {json.dumps(result_data, indent=2, ensure_ascii=False)}")
+                            print(f"📋 Transaction ID: {response_decoded[3]}")
+                        else:
+                            print(f"❌ AI_OK 응답이지만 데이터 프레임이 없음")
+                    elif len(response_decoded) > 1 and response_decoded[1] == "AI_ERROR":
                         print(f"❌ AI_GENERATE 실패!")
-                        # JSON 파싱 시도 전에 raw 데이터 확인
-                        error_frame = response_decoded[3] if len(response_decoded) > 3 else ""
-                        print(f"🔍 에러 프레임 raw: {repr(error_frame)}")
+                        # 수정: response_decoded[4]가 에러 데이터
+                        error_frame = response_decoded[4] if len(response_decoded) > 4 else ""
+                        print(f"🔍 에러 프레임: {repr(error_frame)}")
                         
-                        try:
-                            error_data = json.loads(error_frame)
-                            print(f"📊 에러 내용: {error_data}")
-                        except json.JSONDecodeError as e:
-                            print(f"❗ JSON 파싱 실패: {e}")
-                            print(f"❗ 파싱 시도한 데이터: {repr(error_frame)}")
-                            # 첫 몇 바이트만 확인
-                            if error_frame:
+                        if error_frame:
+                            try:
+                                error_data = json.loads(error_frame)
+                                print(f"📊 에러 내용: {json.dumps(error_data, indent=2, ensure_ascii=False)}")
+                            except json.JSONDecodeError as e:
+                                print(f"❗ JSON 파싱 실패: {e}")
+                                print(f"❗ 파싱 시도한 데이터: {repr(error_frame)}")
                                 print(f"❗ 첫 10자: {repr(error_frame[:10])}")
                                 print(f"❗ 마지막 10자: {repr(error_frame[-10:])}")
+                        else:
+                            print(f"❗ 에러 프레임이 비어있음")
                     else:
                         print(f"⚠️ 예상치 못한 응답: {response_decoded}")
-                        
+                    
                 except Exception as e:
                     print(f"❗ 예외 발생: {e}")
                     import traceback

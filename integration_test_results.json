@@ -1,0 +1,68 @@
+{
+  "summary": {
+    "total": 8,
+    "passed": 0,
+    "failed": 8,
+    "success_rate": 0.0,
+    "avg_response_time": 0.0024231672286987305,
+    "timestamp": "2025-06-09T17:37:53.423230"
+  },
+  "details": [
+    {
+      "test_name": "Health Check",
+      "success": false,
+      "message": "연결 실패: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /health (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fb56cb9d110>: Failed to establish a new connection: [Errno 111] Connection refused'))",
+      "response_time": 0.0029363632202148438,
+      "timestamp": "2025-06-09T17:37:53.400862"
+    },
+    {
+      "test_name": "Swagger Docs",
+      "success": false,
+      "message": "접근 실패: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /docs (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fb56c95e410>: Failed to establish a new connection: [Errno 111] Connection refused'))",
+      "response_time": 0.0014882087707519531,
+      "timestamp": "2025-06-09T17:37:53.402426"
+    },
+    {
+      "test_name": "DB Connection Stability",
+      "success": false,
+      "message": "5회 중 0회 성공",
+      "response_time": 0.007112026214599609,
+      "timestamp": "2025-06-09T17:37:53.409612"
+    },
+    {
+      "test_name": "Parsing Errors List",
+      "success": false,
+      "message": "요청 실패: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/v1/admin/parsing-errors (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fb56c96e550>: Failed to establish a new connection: [Errno 111] Connection refused'))",
+      "response_time": 0.0018482208251953125,
+      "timestamp": "2025-06-09T17:37:53.411538"
+    },
+    {
+      "test_name": "Pagination Test",
+      "success": false,
+      "message": "페이징 실패: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/v1/admin/parsing-errors?page=1&limit=5 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fb56c96cf50>: Failed to establish a new connection: [Errno 111] Connection refused'))",
+      "response_time": 0.0018260478973388672,
+      "timestamp": "2025-06-09T17:37:53.413440"
+    },
+    {
+      "test_name": "Statistics API",
+      "success": false,
+      "message": "통계 실패: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/v1/admin/parsing-errors/statistics/overview (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fb56c95ec50>: Failed to establish a new connection: [Errno 111] Connection refused'))",
+      "response_time": 0.0017571449279785156,
+      "timestamp": "2025-06-09T17:37:53.415290"
+    },
+    {
+      "test_name": "Recent Errors API",
+      "success": false,
+      "message": "최근 에러 실패: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/v1/admin/parsing-errors/recent?hours=24 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fb56c9795d0>: Failed to establish a new connection: [Errno 111] Connection refused'))",
+      "response_time": 0.0012929439544677734,
+      "timestamp": "2025-06-09T17:37:53.416646"
+    },
+    {
+      "test_name": "404 Error Handling",
+      "success": false,
+      "message": "테스트 실패: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /api/v1/admin/non-existent-endpoint (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fb56c984290>: Failed to establish a new connection: [Errno 111] Connection refused'))",
+      "response_time": 0.0011243820190429688,
+      "timestamp": "2025-06-09T17:37:53.417879"
+    }
+  ]
+}

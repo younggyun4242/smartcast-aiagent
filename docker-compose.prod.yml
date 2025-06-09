@@ -9,6 +9,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: smartcast-aiagent-ai-agent-prod
+    ports:
+      - "${API_PORT:-8000}:8000"  # API 서버 포트 매핑 추가
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - BROKER_HOST=${BROKER_HOST}  # 필수: 외부 브로커서버 주소
